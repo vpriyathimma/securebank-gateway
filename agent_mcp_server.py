@@ -28,7 +28,10 @@ logging.basicConfig(level=logging.INFO,
                     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 log = logging.getLogger("agent_mcp")
 
-mcp = FastMCP("securebank-subagents", host="0.0.0.0", port=PORT)
+# Bind localhost-only: this server is internal (LiteLLM reaches it over
+# localhost in the same container). Binding 127.0.0.1 also stops Render's
+# port-detection from mistaking :8090 for the public web port.
+mcp = FastMCP("securebank-subagents", host="127.0.0.1", port=PORT)
 
 
 @mcp.tool()
