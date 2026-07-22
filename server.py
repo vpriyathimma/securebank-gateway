@@ -86,12 +86,8 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        os.getenv("SECUREBANK_URL", "https://securebank-app-v2.onrender.com"),
-        "http://localhost:5173",
-        "http://localhost:3000",
-    ],
-    allow_credentials=True,
+    allow_origins=["*"],       # demo: any frontend (deployed UI or localhost) may call
+    allow_credentials=False,   # must be False when origins is "*"
     allow_methods=["*"],
     allow_headers=["*"],
 )

@@ -1,31 +1,33 @@
-# Render Blueprint — SecureBank gateway (no-SDK) as TWO free web services.
+# Render Blueprint — SecureBank (no-SDK) as THREE services, per Amit:
+#   1. litellm-gateway            = LiteLLM + Reva plugin + sub-agent MCP  (the gateway)
+#   2. securebank-langraph-litellm = the LangGraph / FinBot orchestrator backend
+#   3. securebank-app-v2-litellm   = the SecureBank dashboard frontend (static)
 #
-#   Service A  securebank-litellm  = LiteLLM gateway + Reva plugin + sub-agent MCP
-#                                     (LiteLLM public on $PORT; MCP internal :8090)
-#   Service B  securebank-app       = FinBot (public on $PORT) -> talks to Service A
+# Dependencies: frontend -> langgraph -> gateway.
+# After deploy: set LITELLM_BASE_URL on the langgraph service to the gateway's URL.
 #
-# Only dependency is B -> A. After Service A is live, set LITELLM_BASE_URL on
-# Service B to  https://<service-A-url>/v1  (see DEPLOY-RENDER.md).
+# NOTE ON MEMORY: the gateway (LiteLLM + langchain sub-agent MCP) needs > 512Mi
+# under real model load. On the free tier it will OOM/crash when a prompt runs.
+# Upgrade JUST `litellm-gateway` to the Standard (2GB) instance for a reliable
+# demo; the other two fit the free tier fine.
 services:
-  # ── Service A : the gateway (LiteLLM + Reva + sub-agent MCP) ──
+  # ── 1. the gateway ──
   - type: web
-    name: securebank-litellm
+    name: litellm-gateway
     runtime: python
-    plan: free
+    plan: free          # ⚠️ upgrade to `standard` in the dashboard to avoid OOM
     buildCommand: pip install -r requirements.local.txt
     startCommand: ./start-litellm.sh
     healthCheckPath: /health/liveliness
     envVars:
-      # secrets (set in dashboard)
       - key: AZURE_API_KEY
         sync: false
-      - key: REVA_AUTH_TOKEN          # Reva PDP token (expires — refresh before demo)
+      - key: REVA_AUTH_TOKEN
         sync: false
-      - key: AZURE_CLIENT_SECRET      # SharePoint agent (runs here, in the MCP)
+      - key: AZURE_CLIENT_SECRET
         sync: false
-      - key: REVA_FOUNDRY_API_KEY     # SharePoint agent's Foundry key
+      - key: REVA_FOUNDRY_API_KEY
         sync: false
-      # Reva authorization
       - key: REVA_PDP_URL
         value: https://api.pr06.preview.reva.ai/pdp/access/v1/ai/evaluation
       - key: REVA_POLICYSTORE_ID
@@ -38,7 +40,6 @@ services:
         value: enforce
       - key: LITELLM_MASTER_KEY
         value: sk-foundry-test
-      # sub-agent MCP config (credit/sharepoint run here)
       - key: LITELLM_MODEL
         value: gpt-5-mini
       - key: REVA_USER
@@ -48,16 +49,16 @@ services:
       - key: SECUREBANK_URL
         value: https://securebank-app-v2.onrender.com
 
-  # ── Service B : the FinBot app ──
+  # ── 2. the LangGraph / FinBot backend ──
   - type: web
-    name: securebank-app
+    name: securebank-langraph-litellm
     runtime: python
     plan: free
     buildCommand: pip install -r requirements.local.txt
     startCommand: ./start-app.sh
     healthCheckPath: /health
     envVars:
-      # ⚠️ Set this AFTER Service A is live: https://<service-A-url>/v1
+      # ⚠️ Set AFTER the gateway is live: https://<litellm-gateway-url>/v1
       - key: LITELLM_BASE_URL
         sync: false
       - key: LITELLM_MODEL
@@ -72,3 +73,9 @@ services:
         value: https://reva-mcp-server-v2.onrender.com
       - key: SECUREBANK_URL
         value: https://securebank-app-v2.onrender.com
+
+  # ── 3. the SecureBank dashboard frontend (static) ──
+  - type: web
+    name: securebank-app-v2-litellm
+    runtime: static
+    staticPublishPath: ./ui

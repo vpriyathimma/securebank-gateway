@@ -6,145 +6,264 @@
 <title>SecureBank · FinBot</title>
 <style>
   :root{
-    --bg:#0b1220; --panel:#0f1830; --panel-2:#14213d; --line:#22304f;
-    --text:#e8eef7; --muted:#93a1bd; --brand:#2563eb; --brand-2:#1d4ed8;
-    --bot:#16233f; --user:#2563eb; --ok:#1f9d6b; --deny:#e0564a;
+    --bg:#f7f8fa; --panel:#ffffff; --ink:#111827; --muted:#6b7280; --line:#eceef2;
+    --brand:#2563eb; --brand-d:#1d4ed8; --green:#16a34a; --red:#dc2626;
   }
   *{box-sizing:border-box}
   body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
-       background:linear-gradient(160deg,#0b1220,#0d1628);color:var(--text);height:100vh;display:flex;flex-direction:column}
-  header{display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid var(--line);
-         background:var(--panel)}
-  .logo{width:34px;height:34px;border-radius:8px;background:linear-gradient(135deg,var(--brand),#4f46e5);
-        display:grid;place-items:center;font-weight:700;font-size:16px}
-  header h1{font-size:16px;margin:0;font-weight:650;letter-spacing:.2px}
-  header .sub{color:var(--muted);font-size:12px;margin-top:1px}
+       background:var(--bg);color:var(--ink)}
+  svg{stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  header{background:var(--panel);border-bottom:1px solid var(--line);display:flex;align-items:center;
+         padding:0 30px;height:66px;position:sticky;top:0;z-index:20}
+  .brand{display:flex;align-items:center;gap:11px;font-weight:700;font-size:20px}
+  .brand .lg{color:var(--brand);width:26px;height:26px}
   .spacer{flex:1}
-  .userbox{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)}
-  select{background:var(--panel-2);color:var(--text);border:1px solid var(--line);border-radius:8px;
-         padding:7px 10px;font-size:13px;outline:none}
-  main{flex:1;display:flex;justify-content:center;overflow:hidden}
-  .chat{width:min(820px,100%);display:flex;flex-direction:column;height:100%}
-  #log{flex:1;overflow-y:auto;padding:22px 20px;display:flex;flex-direction:column;gap:14px}
-  .row{display:flex;gap:10px;max-width:80%}
+  .userchip{display:flex;align-items:center;gap:9px;cursor:pointer;padding:7px 11px;border-radius:10px}
+  .userchip:hover{background:#f3f4f6}
+  .userchip .ui{width:18px;height:18px;color:var(--muted)}
+  .userchip .who{font-weight:600;font-size:14.5px}
+  .pill{font-size:11.5px;font-weight:600;padding:4px 11px;border-radius:20px;background:#ede9fe;color:#6d28d9}
+  .caret{color:var(--muted);font-size:10px}
+  .logout{margin-left:12px;border:1px solid var(--line);background:#fff;border-radius:10px;padding:9px 15px;
+          font-size:14px;color:var(--ink);display:flex;gap:8px;align-items:center;cursor:default}
+  .logout svg{width:16px;height:16px}
+  .menu{position:absolute;top:60px;right:30px;background:#fff;border:1px solid var(--line);border-radius:12px;
+        box-shadow:0 12px 30px rgba(17,24,39,.12);width:300px;overflow:hidden;display:none;z-index:30}
+  .menu.open{display:block}
+  .menu h4{margin:0;padding:13px 15px 6px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+  .menu .item{display:flex;align-items:center;gap:11px;padding:11px 15px;cursor:pointer;font-size:14px}
+  .menu .item:hover{background:#f5f8ff}
+  .menu .item .av{width:30px;height:30px;border-radius:50%;background:#e0e7ff;color:#4338ca;display:grid;place-items:center;font-size:12px;font-weight:700}
+  .menu .item small{display:block;color:var(--muted);font-size:12px;margin-top:1px}
+  .menu .item.blocked .av{background:#fee2e2;color:#b91c1c}
+  .layout{display:flex}
+  aside{width:220px;background:var(--panel);border-right:1px solid var(--line);min-height:calc(100vh - 66px);padding:18px 14px}
+  .nav a{display:flex;align-items:center;gap:12px;padding:12px 13px;border-radius:10px;color:#374151;
+         text-decoration:none;font-size:15px;font-weight:500;margin-bottom:3px}
+  .nav a.active{background:#eef4ff;color:var(--brand)}
+  .nav a:hover:not(.active){background:#f6f7f9}
+  .nav svg{width:19px;height:19px;flex:none}
+  main{flex:1;padding:28px 34px}
+  .h1row{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:22px}
+  h1{font-size:28px;margin:0}
+  .welcome{color:var(--muted);font-size:14.5px}
+  .cards{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;margin-bottom:24px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px;position:relative}
+  .card .lab{color:var(--muted);font-size:14px}
+  .card .val{font-size:26px;font-weight:700;margin-top:10px;letter-spacing:-.5px}
+  .card .sub{font-size:13px;margin-top:9px;display:flex;align-items:center;gap:4px}
+  .card .sub svg{width:14px;height:14px}
+  .up{color:var(--green)} .down{color:var(--red)}
+  .card .ico{position:absolute;top:18px;right:18px;width:46px;height:46px;border-radius:50%;display:grid;place-items:center;color:#fff}
+  .card .ico svg{width:22px;height:22px}
+  .tbl{background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+  .tbl h3{margin:0;padding:20px 22px;font-size:17px;border-bottom:1px solid var(--line)}
+  table{width:100%;border-collapse:collapse}
+  th,td{text-align:left;padding:15px 22px;font-size:14.5px;border-bottom:1px solid #f3f4f6}
+  tbody tr:last-child td{border-bottom:0}
+  th{color:var(--muted);font-size:12px;letter-spacing:.05em;text-transform:uppercase;font-weight:600}
+  .ty{display:flex;align-items:center;gap:9px;font-weight:500}
+  .ty svg{width:17px;height:17px}
+  td.amt{font-weight:600}
+  .badge{font-size:12px;padding:4px 11px;border-radius:20px}
+  .badge.completed{background:#dcfce7;color:#15803d}
+  .badge.pending{background:#fef3c7;color:#b45309}
+  /* FinBot */
+  .fab{position:fixed;bottom:24px;right:24px;background:var(--brand);color:#fff;border:0;border-radius:26px;
+       padding:13px 20px;font-size:15px;font-weight:600;cursor:pointer;box-shadow:0 8px 24px rgba(37,99,235,.4);
+       display:flex;gap:9px;align-items:center;z-index:40}
+  .fab svg{width:18px;height:18px}
+  .widget{position:fixed;bottom:24px;right:24px;width:390px;height:580px;background:#fff;border-radius:16px;
+          box-shadow:0 18px 50px rgba(17,24,39,.25);display:none;flex-direction:column;overflow:hidden;z-index:41}
+  .widget.open{display:flex}
+  .wh{background:var(--brand);color:#fff;padding:15px 17px;display:flex;align-items:center;gap:11px}
+  .wh .bt{width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,.2);display:grid;place-items:center}
+  .wh .bt svg{width:18px;height:18px}
+  .wh b{font-size:15px}.wh small{display:block;opacity:.85;font-size:11.5px}
+  .wh .x{margin-left:auto;cursor:pointer;opacity:.9;width:20px;height:20px}
+  #log{flex:1;overflow-y:auto;padding:17px;background:#f8fafc;display:flex;flex-direction:column;gap:12px}
+  .row{display:flex;gap:9px;max-width:88%}
   .row.user{align-self:flex-end;flex-direction:row-reverse}
-  .avatar{width:30px;height:30px;border-radius:50%;flex:none;display:grid;place-items:center;font-size:13px;font-weight:700}
-  .avatar.bot{background:linear-gradient(135deg,var(--brand),#4f46e5)}
-  .avatar.user{background:#334660}
-  .bubble{padding:11px 14px;border-radius:14px;font-size:14.5px;line-height:1.5;white-space:pre-wrap;word-wrap:break-word}
-  .user .bubble{background:var(--user);border-top-right-radius:4px}
-  .bot .bubble{background:var(--bot);border:1px solid var(--line);border-top-left-radius:4px}
-  .bubble.deny{border-color:var(--deny);background:#2a1613}
-  .tag{display:inline-block;font-size:11px;color:var(--muted);margin-top:6px}
-  .tag b{color:#cdd8ee;font-weight:600}
-  .composer{display:flex;gap:10px;padding:14px 20px;border-top:1px solid var(--line);background:var(--panel)}
-  #q{flex:1;background:var(--panel-2);border:1px solid var(--line);color:var(--text);border-radius:10px;
-     padding:12px 14px;font-size:14.5px;outline:none}
+  .av2{width:28px;height:28px;border-radius:50%;flex:none;display:grid;place-items:center}
+  .av2 svg{width:15px;height:15px}
+  .av2.bot{background:#dbeafe;color:#1d4ed8}.av2.user{background:#e5e7eb;color:#4b5563}
+  .bub{padding:11px 13px;border-radius:13px;font-size:14px;line-height:1.5;white-space:pre-wrap;word-wrap:break-word}
+  .bot .bub{background:#fff;border:1px solid var(--line);border-top-left-radius:4px}
+  .user .bub{background:var(--brand);color:#fff;border-top-right-radius:4px}
+  .bub.deny{background:#fef2f2;border:1px solid #fecaca;color:#991b1b}
+  .tag{font-size:11px;color:var(--muted);margin-top:6px}.tag b{color:#374151}
+  .actor{font-size:11.5px;color:var(--muted);padding:3px 17px 11px;background:#f8fafc;text-align:center}
+  .actor b{color:#374151}
+  .wc{display:flex;gap:9px;padding:13px;border-top:1px solid var(--line);background:#fff}
+  #q{flex:1;border:1px solid var(--line);border-radius:10px;padding:12px 13px;font-size:14.5px;outline:none}
   #q:focus{border-color:var(--brand)}
-  button.send{background:var(--brand);color:#fff;border:0;border-radius:10px;padding:0 18px;font-size:14px;
-              font-weight:600;cursor:pointer}
-  button.send:hover{background:var(--brand-2)}
-  button.send:disabled{opacity:.5;cursor:default}
-  .hint{color:var(--muted);font-size:12px;padding:0 20px 10px;background:var(--panel)}
-  .dots span{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--muted);margin:0 2px;
-             animation:b 1.2s infinite}
+  .snd{background:var(--brand);color:#fff;border:0;border-radius:10px;padding:0 17px;font-weight:600;cursor:pointer}
+  .dots span{display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--muted);margin:0 2px;animation:b 1.2s infinite}
   .dots span:nth-child(2){animation-delay:.2s}.dots span:nth-child(3){animation-delay:.4s}
   @keyframes b{0%,60%,100%{opacity:.3}30%{opacity:1}}
-  .chips{display:flex;gap:8px;flex-wrap:wrap;padding:0 20px 14px;background:var(--panel)}
-  .chip{background:var(--panel-2);border:1px solid var(--line);color:var(--muted);border-radius:20px;
-        padding:6px 12px;font-size:12.5px;cursor:pointer}
-  .chip:hover{color:var(--text);border-color:var(--brand)}
 </style>
 </head>
 <body>
+  <!-- icon defs -->
+  <svg style="display:none"><defs>
+    <g id="i-building"><rect x="4" y="2" width="16" height="20" rx="2"/><path d="M9 22v-4h6v4"/><path d="M9 6h.01M15 6h.01M12 6h.01M12 10h.01M12 14h.01M15 10h.01M15 14h.01M9 10h.01M9 14h.01"/></g>
+    <g id="i-card"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></g>
+    <g id="i-dollar"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></g>
+    <g id="i-user"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></g>
+    <g id="i-file"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></g>
+    <g id="i-shield"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></g>
+    <g id="i-users"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></g>
+    <g id="i-up"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></g>
+    <g id="i-down"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/></g>
+    <g id="i-arrup"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></g>
+    <g id="i-arrdn"><line x1="7" y1="7" x2="17" y2="17"/><polyline points="17 7 17 17 7 17"/></g>
+    <g id="i-bot"><rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="1.5"/><path d="M12 6.5V11"/><line x1="8.5" y1="16" x2="8.5" y2="16"/><line x1="15.5" y1="16" x2="15.5" y2="16"/></g>
+    <g id="i-logout"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></g>
+    <g id="i-x"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></g>
+  </defs></svg>
+
   <header>
-    <div class="logo">S</div>
-    <div>
-      <h1>SecureBank · FinBot</h1>
-      <div class="sub">AI assistant — every call authorized by Reva at the LiteLLM gateway</div>
-    </div>
+    <div class="brand"><svg class="lg" viewBox="0 0 24 24"><use href="#i-building"/></svg> SecureBank</div>
     <div class="spacer"></div>
-    <div class="userbox">
-      Acting as
-      <select id="user">
-        <option value="mike.wilson@revapreview.onmicrosoft.com|Mike Wilson">Mike Wilson (permitted)</option>
-        <option value="sarah.johnson@revapreview.onmicrosoft.com|Sarah Johnson">Sarah Johnson (permitted)</option>
-        <option value="SaiSrungaram@revapreview.onmicrosoft.com|Sai Srungaram">Sai Srungaram (permitted)</option>
-        <option value="employee@securebank|Employee">employee@securebank (NOT permitted)</option>
-      </select>
+    <div class="userchip" id="userchip">
+      <svg class="ui" viewBox="0 0 24 24"><use href="#i-user"/></svg>
+      <span class="who" id="who">Mike Wilson</span>
+      <span class="pill" id="role">Bank Manager</span>
+      <span class="caret">▾</span>
+    </div>
+    <button class="logout"><svg viewBox="0 0 24 24"><use href="#i-logout"/></svg> Logout</button>
+    <div class="menu" id="menu">
+      <h4>Switch user</h4>
+      <div class="item" data-uid="mike.wilson@revapreview.onmicrosoft.com" data-name="Mike Wilson" data-role="Bank Manager">
+        <span class="av">MW</span><div>Mike Wilson<small>Bank Manager · permitted</small></div>
+      </div>
+      <div class="item" data-uid="sarah.johnson@revapreview.onmicrosoft.com" data-name="Sarah Johnson" data-role="Bank Teller">
+        <span class="av">SJ</span><div>Sarah Johnson<small>Bank Teller · permitted</small></div>
+      </div>
+      <div class="item blocked" data-uid="employee@securebank" data-name="Employee" data-role="Contractor">
+        <span class="av">EM</span><div>employee@securebank<small>Contractor · not permitted</small></div>
+      </div>
     </div>
   </header>
 
-  <main>
-    <div class="chat">
-      <div id="log"></div>
-      <div class="chips">
-        <div class="chip" data-q="What is a good credit score?">What is a good credit score?</div>
-        <div class="chip" data-q="Show me the credit risk analysis for jane@securebank.com">Credit risk for a customer</div>
-        <div class="chip" data-q="What is the vehicle market and depreciation risk for Toyota?">Market analysis (Toyota)</div>
-        <div class="chip" data-q="What can you help me with?">What can you do?</div>
+  <div class="layout">
+    <aside>
+      <nav class="nav">
+        <a class="active" href="#"><svg viewBox="0 0 24 24"><use href="#i-building"/></svg> Dashboard</a>
+        <a href="#"><svg viewBox="0 0 24 24"><use href="#i-card"/></svg> Accounts</a>
+        <a href="#"><svg viewBox="0 0 24 24"><use href="#i-dollar"/></svg> Transactions</a>
+        <a href="#"><svg viewBox="0 0 24 24"><use href="#i-user"/></svg> Loans</a>
+        <a href="#"><svg viewBox="0 0 24 24"><use href="#i-shield"/></svg> Audit Logs</a>
+      </nav>
+    </aside>
+
+    <main>
+      <div class="h1row">
+        <h1>Dashboard</h1>
+        <div class="welcome">Welcome back, <span id="welcome">Mike Wilson</span></div>
       </div>
-      <div class="composer">
-        <input id="q" placeholder="Ask FinBot anything…" autocomplete="off" />
-        <button class="send" id="send">Send</button>
+
+      <div class="cards">
+        <div class="card"><div class="lab">Total Customers</div><div class="val">20</div>
+          <div class="sub up"><svg viewBox="0 0 24 24"><use href="#i-up"/></svg> 12</div>
+          <div class="ico" style="background:#2563eb"><svg viewBox="0 0 24 24"><use href="#i-users"/></svg></div></div>
+        <div class="card"><div class="lab">Total Deposits</div><div class="val">$621,241.50</div>
+          <div class="sub up"><svg viewBox="0 0 24 24"><use href="#i-up"/></svg> 8.2%</div>
+          <div class="ico" style="background:#16a34a"><svg viewBox="0 0 24 24"><use href="#i-dollar"/></svg></div></div>
+        <div class="card"><div class="lab">Total Accounts</div><div class="val">11</div>
+          <div class="sub" style="color:var(--muted)">&nbsp;</div>
+          <div class="ico" style="background:#7c3aed"><svg viewBox="0 0 24 24"><use href="#i-card"/></svg></div></div>
+        <div class="card"><div class="lab">Active Loans</div><div class="val">$1,519,450.00</div>
+          <div class="sub down"><svg viewBox="0 0 24 24"><use href="#i-down"/></svg> 3.1%</div>
+          <div class="ico" style="background:#ea7317"><svg viewBox="0 0 24 24"><use href="#i-file"/></svg></div></div>
       </div>
-      <div class="hint">Backend: <b>localhost:10000</b> → LiteLLM (:4010) → Reva PDP + Azure Foundry. Switch the user to see allow vs deny.</div>
+
+      <div class="tbl">
+        <h3>Recent Transactions</h3>
+        <table>
+          <thead><tr><th>Type</th><th>Description</th><th>Amount</th><th>Date</th><th>Status</th></tr></thead>
+          <tbody>
+            <tr><td><span class="ty" style="color:var(--red)"><svg viewBox="0 0 24 24"><use href="#i-down"/></svg><span style="color:var(--ink)">Withdrawal</span></span></td><td>Online purchase - Electronics</td><td class="amt down">-$300.00</td><td style="color:var(--muted)">06/08/2024</td><td><span class="badge pending">pending</span></td></tr>
+            <tr><td><span class="ty" style="color:var(--green)"><svg viewBox="0 0 24 24"><use href="#i-up"/></svg><span style="color:var(--ink)">Deposit</span></span></td><td>Payroll deposit - SecureTech Inc</td><td class="amt up">+$1,500.00</td><td style="color:var(--muted)">05/08/2024</td><td><span class="badge completed">completed</span></td></tr>
+            <tr><td><span class="ty" style="color:var(--green)"><svg viewBox="0 0 24 24"><use href="#i-up"/></svg><span style="color:var(--ink)">Deposit</span></span></td><td>Direct deposit - Marketing Plus</td><td class="amt up">+$2,200.00</td><td style="color:var(--muted)">05/08/2024</td><td><span class="badge completed">completed</span></td></tr>
+            <tr><td><span class="ty" style="color:var(--green)"><svg viewBox="0 0 24 24"><use href="#i-up"/></svg><span style="color:var(--ink)">Deposit</span></span></td><td>Client payment - Website development</td><td class="amt up">+$4,500.00</td><td style="color:var(--muted)">05/08/2024</td><td><span class="badge completed">completed</span></td></tr>
+            <tr><td><span class="ty" style="color:var(--green)"><svg viewBox="0 0 24 24"><use href="#i-up"/></svg><span style="color:var(--ink)">Deposit</span></span></td><td>Salary - Reva AI</td><td class="amt up">+$5,000.00</td><td style="color:var(--muted)">05/08/2024</td><td><span class="badge completed">completed</span></td></tr>
+            <tr><td><span class="ty" style="color:var(--green)"><svg viewBox="0 0 24 24"><use href="#i-up"/></svg><span style="color:var(--ink)">Deposit</span></span></td><td>Salary - Reva AI</td><td class="amt up">+$4,200.00</td><td style="color:var(--muted)">05/08/2024</td><td><span class="badge completed">completed</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </main>
+  </div>
+
+  <button class="fab" id="fab"><svg viewBox="0 0 24 24"><use href="#i-bot"/></svg> Ask FinBot</button>
+  <div class="widget" id="widget">
+    <div class="wh">
+      <div class="bt"><svg viewBox="0 0 24 24"><use href="#i-bot"/></svg></div>
+      <div><b>FinBot</b><small>Authorized by Reva at the gateway</small></div>
+      <svg class="x" id="close" viewBox="0 0 24 24"><use href="#i-x"/></svg>
     </div>
-  </main>
+    <div id="log"></div>
+    <div class="actor">acting as <b id="actor">Mike Wilson</b></div>
+    <div class="wc">
+      <input id="q" placeholder="Ask FinBot anything…" autocomplete="off" />
+      <button class="snd" id="send">Send</button>
+    </div>
+  </div>
 
 <script>
-const log = document.getElementById('log');
-const input = document.getElementById('q');
-const sendBtn = document.getElementById('send');
-const userSel = document.getElementById('user');
+// Backend (LangGraph FinBot). Localhost when running locally; the deployed
+// LangGraph service otherwise. Change the deployed URL if your service name differs.
+const BACKEND = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
+  ? 'http://localhost:10000'
+  : (window.BACKEND_URL || 'https://securebank-langraph-litellm.onrender.com');
+const USERS = {
+  'mike.wilson@revapreview.onmicrosoft.com': {name:'Mike Wilson', role:'Bank Manager'},
+  'sarah.johnson@revapreview.onmicrosoft.com': {name:'Sarah Johnson', role:'Bank Teller'},
+  'employee@securebank': {name:'Employee', role:'Contractor'},
+};
+let CURRENT = 'mike.wilson@revapreview.onmicrosoft.com';
+const $ = id => document.getElementById(id);
+function setUser(uid){ CURRENT=uid; const u=USERS[uid];
+  $('who').textContent=u.name; $('role').textContent=u.role; $('welcome').textContent=u.name; $('actor').textContent=u.name; }
 
+$('userchip').onclick = e => { e.stopPropagation(); $('menu').classList.toggle('open'); };
+document.onclick = () => $('menu').classList.remove('open');
+document.querySelectorAll('.menu .item').forEach(it => it.onclick = () => { setUser(it.dataset.uid); $('menu').classList.remove('open'); });
+
+$('fab').onclick = () => { $('widget').classList.add('open'); $('fab').style.display='none'; $('q').focus(); };
+$('close').onclick = () => { $('widget').classList.remove('open'); $('fab').style.display='flex'; };
+
+const log = $('log');
+const BOT='<svg viewBox="0 0 24 24"><use href="#i-bot"/></svg>', USR='<svg viewBox="0 0 24 24"><use href="#i-user"/></svg>';
 function add(role, text, opts={}){
-  const row = document.createElement('div'); row.className = 'row ' + role;
-  const av = document.createElement('div'); av.className = 'avatar ' + role;
-  av.textContent = role === 'bot' ? '🤖' : '🧑';
-  const wrap = document.createElement('div');
-  const b = document.createElement('div'); b.className = 'bubble' + (opts.deny ? ' deny' : '');
-  b.textContent = text; wrap.appendChild(b);
-  if(opts.tag){ const t=document.createElement('div'); t.className='tag'; t.innerHTML=opts.tag; wrap.appendChild(t); }
-  row.appendChild(av); row.appendChild(wrap); log.appendChild(row); log.scrollTop = log.scrollHeight;
-  return b;
+  const row=document.createElement('div'); row.className='row '+role;
+  const av=document.createElement('div'); av.className='av2 '+role; av.innerHTML = role==='bot'?BOT:USR;
+  const wrap=document.createElement('div');
+  const b=document.createElement('div'); b.className='bub'+(opts.deny?' deny':''); b.textContent=text; wrap.appendChild(b);
+  if(opts.tag){const t=document.createElement('div');t.className='tag';t.innerHTML=opts.tag;wrap.appendChild(t);}
+  row.appendChild(av); row.appendChild(wrap); log.appendChild(row); log.scrollTop=log.scrollHeight; return b;
 }
-function typing(){
-  const row=document.createElement('div'); row.className='row bot'; row.id='typing';
-  row.innerHTML='<div class="avatar bot">🤖</div><div class="bubble"><span class="dots"><span></span><span></span><span></span></span></div>';
-  log.appendChild(row); log.scrollTop=log.scrollHeight;
-}
-function stopTyping(){ const t=document.getElementById('typing'); if(t) t.remove(); }
-
-add('bot', "Hi! I'm FinBot, your SecureBank AI assistant. Ask me about credit, loans, market or compliance. Every request is authorized by Reva at the gateway.");
+function typing(){const r=document.createElement('div');r.className='row bot';r.id='typing';
+  r.innerHTML='<div class="av2 bot">'+BOT+'</div><div class="bub"><span class="dots"><span></span><span></span><span></span></span></div>';
+  log.appendChild(r); log.scrollTop=log.scrollHeight;}
+function stopT(){const t=$('typing'); if(t) t.remove();}
+add('bot',"Hi! I'm FinBot, your SecureBank AI assistant. I can help with credit, loans, market and compliance. Every request is authorized by Reva at the gateway.");
 
 async function send(){
-  const q = input.value.trim(); if(!q) return;
-  const [uid, uname] = userSel.value.split('|');
-  add('user', q, {tag: 'as <b>'+uname+'</b>'});
-  input.value=''; sendBtn.disabled=true; typing();
+  const q=$('q').value.trim(); if(!q) return; const u=USERS[CURRENT];
+  add('user',q); $('q').value=''; $('send').disabled=true; typing();
   try{
-    const res = await fetch('http://localhost:10000/chat', {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({message:q, user_id:uid, user_name:uname, role:'manager'})
-    });
-    const data = await res.json();
-    stopTyping();
-    const denied = /not permitted|authorization policy|not able to complete/i.test(data.response||'');
-    add('bot', data.response || '(no response)', {
-      deny: denied,
-      tag: denied ? '⛔ <b>Denied by Reva</b>' : 'handled by <b>'+(data.agent||'finbot')+'</b> · ✅ authorized'
-    });
-  }catch(e){
-    stopTyping();
-    add('bot', 'Could not reach the backend on localhost:10000. Is it running? (./run_local.sh)', {deny:true});
-  }
-  sendBtn.disabled=false; input.focus();
+    const res=await fetch(BACKEND+'/chat',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({message:q,user_id:CURRENT,user_name:u.name,role:'manager'})});
+    const d=await res.json(); stopT();
+    const denied=/not permitted|authorization policy|not able to complete/i.test(d.response||'');
+    add('bot', d.response||'(no response)', {deny:denied,
+      tag: denied ? 'Denied by Reva' : 'handled by <b>'+(d.agent||'finbot')+'</b> · authorized'});
+  }catch(e){ stopT(); add('bot','Could not reach FinBot on localhost:10000. Is the backend running?',{deny:true}); }
+  $('send').disabled=false; $('q').focus();
 }
-sendBtn.onclick = send;
-input.addEventListener('keydown', e=>{ if(e.key==='Enter') send(); });
-document.querySelectorAll('.chip').forEach(c=> c.onclick=()=>{ input.value=c.dataset.q; send(); });
-input.focus();
+$('send').onclick=send;
+$('q').addEventListener('keydown',e=>{if(e.key==='Enter')send();});
 </script>
 </body>
 </html>
