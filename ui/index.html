@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>SecureBank · FinBot</title>
+<style>
+  :root{
+    --bg:#0b1220; --panel:#0f1830; --panel-2:#14213d; --line:#22304f;
+    --text:#e8eef7; --muted:#93a1bd; --brand:#2563eb; --brand-2:#1d4ed8;
+    --bot:#16233f; --user:#2563eb; --ok:#1f9d6b; --deny:#e0564a;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+       background:linear-gradient(160deg,#0b1220,#0d1628);color:var(--text);height:100vh;display:flex;flex-direction:column}
+  header{display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid var(--line);
+         background:var(--panel)}
+  .logo{width:34px;height:34px;border-radius:8px;background:linear-gradient(135deg,var(--brand),#4f46e5);
+        display:grid;place-items:center;font-weight:700;font-size:16px}
+  header h1{font-size:16px;margin:0;font-weight:650;letter-spacing:.2px}
+  header .sub{color:var(--muted);font-size:12px;margin-top:1px}
+  .spacer{flex:1}
+  .userbox{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)}
+  select{background:var(--panel-2);color:var(--text);border:1px solid var(--line);border-radius:8px;
+         padding:7px 10px;font-size:13px;outline:none}
+  main{flex:1;display:flex;justify-content:center;overflow:hidden}
+  .chat{width:min(820px,100%);display:flex;flex-direction:column;height:100%}
+  #log{flex:1;overflow-y:auto;padding:22px 20px;display:flex;flex-direction:column;gap:14px}
+  .row{display:flex;gap:10px;max-width:80%}
+  .row.user{align-self:flex-end;flex-direction:row-reverse}
+  .avatar{width:30px;height:30px;border-radius:50%;flex:none;display:grid;place-items:center;font-size:13px;font-weight:700}
+  .avatar.bot{background:linear-gradient(135deg,var(--brand),#4f46e5)}
+  .avatar.user{background:#334660}
+  .bubble{padding:11px 14px;border-radius:14px;font-size:14.5px;line-height:1.5;white-space:pre-wrap;word-wrap:break-word}
+  .user .bubble{background:var(--user);border-top-right-radius:4px}
+  .bot .bubble{background:var(--bot);border:1px solid var(--line);border-top-left-radius:4px}
+  .bubble.deny{border-color:var(--deny);background:#2a1613}
+  .tag{display:inline-block;font-size:11px;color:var(--muted);margin-top:6px}
+  .tag b{color:#cdd8ee;font-weight:600}
+  .composer{display:flex;gap:10px;padding:14px 20px;border-top:1px solid var(--line);background:var(--panel)}
+  #q{flex:1;background:var(--panel-2);border:1px solid var(--line);color:var(--text);border-radius:10px;
+     padding:12px 14px;font-size:14.5px;outline:none}
+  #q:focus{border-color:var(--brand)}
+  button.send{background:var(--brand);color:#fff;border:0;border-radius:10px;padding:0 18px;font-size:14px;
+              font-weight:600;cursor:pointer}
+  button.send:hover{background:var(--brand-2)}
+  button.send:disabled{opacity:.5;cursor:default}
+  .hint{color:var(--muted);font-size:12px;padding:0 20px 10px;background:var(--panel)}
+  .dots span{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--muted);margin:0 2px;
+             animation:b 1.2s infinite}
+  .dots span:nth-child(2){animation-delay:.2s}.dots span:nth-child(3){animation-delay:.4s}
+  @keyframes b{0%,60%,100%{opacity:.3}30%{opacity:1}}
+  .chips{display:flex;gap:8px;flex-wrap:wrap;padding:0 20px 14px;background:var(--panel)}
+  .chip{background:var(--panel-2);border:1px solid var(--line);color:var(--muted);border-radius:20px;
+        padding:6px 12px;font-size:12.5px;cursor:pointer}
+  .chip:hover{color:var(--text);border-color:var(--brand)}
+</style>
+</head>
+<body>
+  <header>
+    <div class="logo">S</div>
+    <div>
+      <h1>SecureBank · FinBot</h1>
+      <div class="sub">AI assistant — every call authorized by Reva at the LiteLLM gateway</div>
+    </div>
+    <div class="spacer"></div>
+    <div class="userbox">
+      Acting as
+      <select id="user">
+        <option value="mike.wilson@revapreview.onmicrosoft.com|Mike Wilson">Mike Wilson (permitted)</option>
+        <option value="sarah.johnson@revapreview.onmicrosoft.com|Sarah Johnson">Sarah Johnson (permitted)</option>
+        <option value="SaiSrungaram@revapreview.onmicrosoft.com|Sai Srungaram">Sai Srungaram (permitted)</option>
+        <option value="employee@securebank|Employee">employee@securebank (NOT permitted)</option>
+      </select>
+    </div>
+  </header>
+
+  <main>
+    <div class="chat">
+      <div id="log"></div>
+      <div class="chips">
+        <div class="chip" data-q="What is a good credit score?">What is a good credit score?</div>
+        <div class="chip" data-q="Show me the credit risk analysis for jane@securebank.com">Credit risk for a customer</div>
+        <div class="chip" data-q="What is the vehicle market and depreciation risk for Toyota?">Market analysis (Toyota)</div>
+        <div class="chip" data-q="What can you help me with?">What can you do?</div>
+      </div>
+      <div class="composer">
+        <input id="q" placeholder="Ask FinBot anything…" autocomplete="off" />
+        <button class="send" id="send">Send</button>
+      </div>
+      <div class="hint">Backend: <b>localhost:10000</b> → LiteLLM (:4010) → Reva PDP + Azure Foundry. Switch the user to see allow vs deny.</div>
+    </div>
+  </main>
+
+<script>
+const log = document.getElementById('log');
+const input = document.getElementById('q');
+const sendBtn = document.getElementById('send');
+const userSel = document.getElementById('user');
+
+function add(role, text, opts={}){
+  const row = document.createElement('div'); row.className = 'row ' + role;
+  const av = document.createElement('div'); av.className = 'avatar ' + role;
+  av.textContent = role === 'bot' ? '🤖' : '🧑';
+  const wrap = document.createElement('div');
+  const b = document.createElement('div'); b.className = 'bubble' + (opts.deny ? ' deny' : '');
+  b.textContent = text; wrap.appendChild(b);
+  if(opts.tag){ const t=document.createElement('div'); t.className='tag'; t.innerHTML=opts.tag; wrap.appendChild(t); }
+  row.appendChild(av); row.appendChild(wrap); log.appendChild(row); log.scrollTop = log.scrollHeight;
+  return b;
+}
+function typing(){
+  const row=document.createElement('div'); row.className='row bot'; row.id='typing';
+  row.innerHTML='<div class="avatar bot">🤖</div><div class="bubble"><span class="dots"><span></span><span></span><span></span></span></div>';
+  log.appendChild(row); log.scrollTop=log.scrollHeight;
+}
+function stopTyping(){ const t=document.getElementById('typing'); if(t) t.remove(); }
+
+add('bot', "Hi! I'm FinBot, your SecureBank AI assistant. Ask me about credit, loans, market or compliance. Every request is authorized by Reva at the gateway.");
+
+async function send(){
+  const q = input.value.trim(); if(!q) return;
+  const [uid, uname] = userSel.value.split('|');
+  add('user', q, {tag: 'as <b>'+uname+'</b>'});
+  input.value=''; sendBtn.disabled=true; typing();
+  try{
+    const res = await fetch('http://localhost:10000/chat', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({message:q, user_id:uid, user_name:uname, role:'manager'})
+    });
+    const data = await res.json();
+    stopTyping();
+    const denied = /not permitted|authorization policy|not able to complete/i.test(data.response||'');
+    add('bot', data.response || '(no response)', {
+      deny: denied,
+      tag: denied ? '⛔ <b>Denied by Reva</b>' : 'handled by <b>'+(data.agent||'finbot')+'</b> · ✅ authorized'
+    });
+  }catch(e){
+    stopTyping();
+    add('bot', 'Could not reach the backend on localhost:10000. Is it running? (./run_local.sh)', {deny:true});
+  }
+  sendBtn.disabled=false; input.focus();
+}
+sendBtn.onclick = send;
+input.addEventListener('keydown', e=>{ if(e.key==='Enter') send(); });
+document.querySelectorAll('.chip').forEach(c=> c.onclick=()=>{ input.value=c.dataset.q; send(); });
+input.focus();
+</script>
+</body>
+</html>

@@ -806,6 +806,17 @@ class RevaAuthHook(CustomGuardrail):
         now = _iso_now()
         target = meta.get("reva_agent_resource") or "unknown-agent"
         arguments = data.get("arguments")
+        # Subject is normally the delegating Agent, but the user->finbot FRONT
+        # DOOR has a User subject (a person invoking the top agent). The store's
+        # User->Agent permit only matches when subject.type == "User".
+        subject_type = meta.get("reva_subject_type") or "Agent"
+        if subject_type == "User":
+            subject_id = meta.get("reva_subject_id") or user_id
+            subject = {"type": "User", "id": subject_id, "name": subject_id}
+        else:
+            subject_id = agent_id
+            subject = {"type": "Agent", "id": agent_id,
+                       "name": meta.get("reva_agent_name") or agent_id}
         context = _ai_context(user_id, meta)
         history = meta.get("conversation") or meta.get("messages")
         context["conversation"] = (
@@ -817,8 +828,7 @@ class RevaAuthHook(CustomGuardrail):
         turn = _turn(history) if history else int(meta.get("turn") or 1)
         msg = str(arguments.get("message") or "")[:2000] if isinstance(arguments, dict) else ""
         eval_request = {
-            "subject": {"type": "Agent", "id": agent_id,
-                        "name": meta.get("reva_agent_name") or agent_id},
+            "subject": subject,
             "action": {"name": "invokeAgent"},
             "resource": {"type": "Agent", "id": target, "name": target},
             "principal": {"type": "User", "id": user_id},
@@ -827,8 +837,9 @@ class RevaAuthHook(CustomGuardrail):
                              "contentType": "text/plain", "content": msg},
             "session": _session(meta, now, turn),
         }
-        log.info("[ai-eval] invokeAgent agent=%s -> %s user=%s", agent_id, target, user_id)
-        return eval_request, agent_id
+        log.info("[ai-eval] invokeAgent %s=%s -> %s user=%s",
+                 subject_type, subject_id, target, user_id)
+        return eval_request, subject_id
 
     # ------------------------------------------------------------------
     async def _evaluate(

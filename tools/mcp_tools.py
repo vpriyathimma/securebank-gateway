@@ -24,6 +24,7 @@ from langchain_core.tools import tool
 # (never fires); deny_message still works. Tool authorization moves to the
 # LiteLLM gateway — see the TODO in _call_mcp_tool.
 from reva_errors import RevaAuthorizationError, deny_message
+from reva_identity import current_user
 
 MCP_SERVER_URL = os.getenv("MCP_SERVER_URL", "https://reva-mcp-server-v2.onrender.com")
 MCP_ENDPOINT = f"{MCP_SERVER_URL}/mcp"
@@ -114,7 +115,7 @@ async def _call_mcp_tool(tool_name: str, arguments: dict, resource_id: str, prom
             "arguments": args,
             "metadata": {
                 "reva_agent_id": _TOOL_AGENT.get(resource_id, MCP_AGENT_ID),
-                "reva_user_id": REVA_USER,
+                "reva_user_id": current_user(),
                 "reva_server_id": "reva-mcp-server",
                 "reva_tool_id": resource_id,
             },

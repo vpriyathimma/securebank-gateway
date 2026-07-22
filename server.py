@@ -22,9 +22,58 @@ print(f"DEBUG ENV: POLICYSTORE_ID={os.getenv('POLICYSTORE_ID')}")
 print(f"DEBUG ENV: RTG_DISABLED={os.getenv('RTG_DISABLED')}")
 print(f"DEBUG ENV: RTG_AUTH_TOKEN={'SET' if os.getenv('RTG_AUTH_TOKEN') else 'NOT SET'}")
 
+import httpx
 from finbot_agent import invoke_finbot, _credit_context
 from credit_agent import invoke_credit_agent
 from sharepoint_agent import invoke_sharepoint_agent
+
+# ── User -> FinBot front-door authorization ──────────────────────
+# The user->finbot hop is the app's front door; it doesn't naturally pass a
+# model/MCP call, so we route a lightweight checkpoint through LiteLLM's MCP
+# gateway (authorize_finbot_entry). The pre_mcp_call guardrail then evaluates
+# invokeAgent(User -> finbot-agent) against the store, exactly like every other
+# hop. Denied users are blocked here before FinBot ever runs.
+_LL_BASE = os.getenv("LITELLM_BASE_URL", "http://localhost:4010/v1").rstrip("/")
+_LITELLM_ROOT = _LL_BASE[:-3].rstrip("/") if _LL_BASE.endswith("/v1") else _LL_BASE
+_LITELLM_MCP_ENDPOINT = f"{_LITELLM_ROOT}/mcp-rest/tools/call"
+_LITELLM_MASTER_KEY = os.getenv("LITELLM_MASTER_KEY", "sk-foundry-test")
+_ENTRY_AUTH = os.getenv("USER_ENTRY_AUTH", "true").lower() not in ("false", "0", "no")
+
+
+async def _authorize_user_entry(user_id: str, message: str) -> tuple[bool, str]:
+    """Authorize User -> finbot-agent via the gateway. Returns (allowed, reason).
+    Fails open only on transport errors (never blocks on infra); a real 403 is a
+    policy deny and blocks."""
+    if not _ENTRY_AUTH:
+        return True, ""
+    payload = {
+        "server_id": "reva_agents",
+        "name": "authorize_finbot_entry",
+        "arguments": {"message": message[:500]},
+        "metadata": {
+            "reva_action": "invokeAgent",
+            "reva_subject_type": "User",
+            "reva_subject_id": user_id,
+            "reva_user_id": user_id,
+            "reva_agent_resource": "finbot-agent",
+        },
+    }
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as c:
+            r = await c.post(_LITELLM_MCP_ENDPOINT, json=payload,
+                             headers={"Authorization": f"Bearer {_LITELLM_MASTER_KEY}",
+                                      "Content-Type": "application/json"})
+    except Exception as e:
+        print(f"DEBUG ENTRY: gateway unreachable, failing open: {e}")
+        return True, ""
+    if r.status_code == 403:
+        try:
+            detail = r.json().get("detail", {})
+            reason = detail.get("message") or "authorization denied by policy"
+        except Exception:
+            reason = "authorization denied by policy"
+        return False, reason
+    return True, ""
 
 
 app = FastAPI(
@@ -89,6 +138,21 @@ async def chat(body: ChatRequest, request: Request):
         print(f"DEBUG PROMPT: current='{body.prompt}'")
         print(f"DEBUG PROMPT: query_history='{body.query_history}'")
         print(f"DEBUG PROMPT: history={body.history}")
+
+        # FRONT DOOR: authorize User -> finbot-agent through the gateway before
+        # FinBot runs. A user not permitted in the store is blocked here.
+        entry_user = body.user_id or os.getenv("REVA_USER", "employee@securebank")
+        allowed, reason = await _authorize_user_entry(entry_user, body.message)
+        if not allowed:
+            print(f"DEBUG ENTRY: DENIED user={entry_user} reason={reason}")
+            return ChatResponse(
+                response=("I'm not able to help with that — SecureBank's "
+                          f"authorization policy does not permit {entry_user} to "
+                          "use FinBot."),
+                session_id=session_id,
+                agent="finbot-langgraph",
+            )
+        print(f"DEBUG ENTRY: ALLOWED user={entry_user}")
 
         response = await invoke_finbot(
             session_id=session_id,

@@ -11,6 +11,7 @@ The Finbot Agent spawns this agent when it detects a credit-related query.
 import os
 from langgraph.prebuilt import create_react_agent
 from langchain_openai import ChatOpenAI
+from reva_identity import current_user
 from tools.credit_score import get_credit_score, get_credit_risk, set_trat_token
 
 CREDIT_AGENT_PROMPT = """You are the Credit Score Agent for SecureBank.
@@ -43,7 +44,7 @@ def create_credit_agent():
         base_url=os.getenv("LITELLM_BASE_URL", "http://localhost:4000/v1"),
         api_key=os.getenv("LITELLM_MASTER_KEY", "sk-foundry-test"),
         extra_body={"metadata": {"reva_agent_id": "credit-agent",
-                                 "reva_user_id": os.getenv("REVA_USER", "employee@securebank")}},
+                                 "reva_user_id": current_user()}},
         temperature=0,
     )
 

@@ -40,6 +40,7 @@ from tools.infra import (
 )
 import httpx
 from reva_errors import is_timeout_error, deny_message, RevaAuthorizationError
+from reva_identity import current_user, set_current_user
 
 SELF_URL = os.getenv("LANGGRAPH_SELF_URL", "http://localhost:10000")
 
@@ -97,6 +98,9 @@ async def _delegate_to_agent(resource_id: str, route: str, message: str, **biz_f
     """
     args = {"message": message}
     args.update({k: v for k, v in biz_fields.items() if v})
+    # Thread the acting user across the process boundary so the sub-agent's own
+    # hops carry the same on-behalf-of user (the MCP call re-sets it there).
+    args["on_behalf_of"] = current_user()
     _timeout = float(os.getenv("PROXY_TIMEOUT_SECONDS", "120"))
 
     if _DELEGATE_VIA_GATEWAY and resource_id in _AGENT_MCP_TOOL:
@@ -106,7 +110,7 @@ async def _delegate_to_agent(resource_id: str, route: str, message: str, **biz_f
             "arguments": args,
             "metadata": {
                 "reva_agent_id": "finbot-agent",
-                "reva_user_id": os.getenv("REVA_USER", "employee@securebank"),
+                "reva_user_id": current_user(),
                 # Tell the hook to evaluate this as an Agent->Agent delegation.
                 "reva_action": "invokeAgent",
                 "reva_agent_resource": resource_id,
@@ -259,7 +263,7 @@ def create_finbot_agent():
         # user the call is for. This replaces the SDK's job — no SDK needed.
         extra_body={"metadata": {
             "reva_agent_id": "finbot-agent",
-            "reva_user_id": os.getenv("REVA_USER", "employee@securebank"),
+            "reva_user_id": current_user(),
         }},
     )
 
@@ -300,6 +304,10 @@ async def invoke_finbot(
     trat_token: str = "",
 ) -> str:
     """Invoke the Finbot Agent with a user message."""
+    # Acting user for this request — every hop's eval (finbot model, tools,
+    # delegation) reads it via reva_identity.current_user(). Set before the
+    # agent/LLM is built so its extra_body metadata carries the right user.
+    set_current_user(user_id)
     # Set tokens and user identity on all tool modules (ORIGINAL)
     set_loans_trat(trat_token)
     set_loans_user_id(user_id)

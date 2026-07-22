@@ -19,6 +19,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from mcp.server.fastmcp import FastMCP
+from reva_identity import set_current_user
 from credit_agent import invoke_credit_agent
 from sharepoint_agent import invoke_sharepoint_agent
 
@@ -31,19 +32,33 @@ mcp = FastMCP("securebank-subagents", host="0.0.0.0", port=PORT)
 
 
 @mcp.tool()
+async def authorize_finbot_entry(message: str = "") -> str:
+    """Front-door checkpoint: routing the user->finbot hop through the gateway so
+    Reva evaluates invokeAgent(User -> finbot-agent). Returns 'ok' when allowed;
+    a denied user never reaches here (the guardrail returns 403 first)."""
+    return "ok"
+
+
+@mcp.tool()
 async def invoke_credit_agent_tool(message: str, user_email: str = "",
-                                   branch_id: str = "", trat_token: str = "") -> str:
+                                   branch_id: str = "", trat_token: str = "",
+                                   on_behalf_of: str = "") -> str:
     """Delegate to the SecureBank credit-agent (credit score & risk analysis)."""
-    log.info("delegate -> credit-agent: %s", (message or "")[:60])
+    # Re-set the acting user on this side of the process boundary so the credit
+    # agent's own model + tool calls carry the same on-behalf-of user.
+    set_current_user(on_behalf_of)
+    log.info("delegate -> credit-agent (obo=%s): %s", on_behalf_of, (message or "")[:60])
     return await invoke_credit_agent(user_message=message, user_email=user_email,
                                      trat_token=trat_token, branch_id=branch_id)
 
 
 @mcp.tool()
 async def invoke_sharepoint_agent_tool(message: str, user_name: str = "",
-                                       role: str = "", branch_id: str = "") -> str:
+                                       role: str = "", branch_id: str = "",
+                                       on_behalf_of: str = "") -> str:
     """Delegate to the SecureBank sharepoint-agent (company policy / document lookup)."""
-    log.info("delegate -> sharepoint-agent: %s", (message or "")[:60])
+    set_current_user(on_behalf_of)
+    log.info("delegate -> sharepoint-agent (obo=%s): %s", on_behalf_of, (message or "")[:60])
     return await invoke_sharepoint_agent(user_message=message, user_name=user_name,
                                          role=role, branch_id=branch_id)
 
