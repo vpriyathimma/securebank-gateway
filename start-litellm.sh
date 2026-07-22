@@ -6,6 +6,16 @@ set -uo pipefail
 cd "$(dirname "$0")"
 AGENT_MCP_PORT="${AGENT_MCP_PORT:-8090}"
 
+# Strip stray newlines/whitespace from pasted secrets. Copy-paste into the
+# Render dashboard often appends a trailing \n, which is an ILLEGAL HTTP header
+# character -> Azure "Invalid header value" / "APIConnectionError", and a bad
+# Bearer token makes Reva auth fail open. tokens/keys never contain whitespace,
+# so removing all \r\n is safe.
+for v in AZURE_API_KEY REVA_AUTH_TOKEN LITELLM_MASTER_KEY AZURE_CLIENT_SECRET \
+         REVA_FOUNDRY_API_KEY REVA_PDP_URL REVA_POLICYSTORE_ID LITELLM_MODEL; do
+  if [ -n "${!v:-}" ]; then export "$v"="$(printf '%s' "${!v}" | tr -d '\r\n')"; fi
+done
+
 echo "==> sub-agent MCP on :$AGENT_MCP_PORT (its sub-agents call THIS service's LiteLLM)"
 # credit/sharepoint sub-agents must call the LiteLLM in THIS container (localhost:$PORT)
 LITELLM_BASE_URL="http://localhost:${PORT}/v1" AGENT_MCP_PORT=$AGENT_MCP_PORT \
