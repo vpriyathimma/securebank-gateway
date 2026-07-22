@@ -1,0 +1,57 @@
+[
+  {
+    "uid": { "type": "AppPolicies::Agent", "id": "finbot-agent" },
+    "attrs": {
+      "id": "finbot-agent",
+      "name": "FinBot Agent",
+      "description": "SecureBank primary orchestrator agent",
+      "pathUrl": "http://localhost:10000",
+      "riskTier": "medium"
+    },
+    "parents": []
+  },
+  {
+    "uid": { "type": "AppPolicies::Agent", "id": "credit-agent" },
+    "attrs": {
+      "id": "credit-agent",
+      "name": "Credit Agent",
+      "description": "SecureBank credit-score sub-agent",
+      "pathUrl": "http://localhost:10000/credit",
+      "riskTier": "medium"
+    },
+    "parents": []
+  },
+  {
+    "uid": { "type": "AppPolicies::Model", "id": "gpt-5-mini" },
+    "attrs": {
+      "id": "gpt-5-mini",
+      "modelId": "gpt-5-mini",
+      "name": "GPT-5 mini (Azure Foundry)",
+      "provider": "azure-openai",
+      "tier": "standard"
+    },
+    "parents": []
+  },
+  {
+    "uid": { "type": "AppPolicies::Model", "id": "gpt-5.1-sharepoint" },
+    "attrs": {
+      "id": "gpt-5.1-sharepoint",
+      "modelId": "gpt-5.1-sharepoint",
+      "name": "GPT-5.1 SharePoint (gated, Azure Foundry)",
+      "provider": "azure-openai",
+      "tier": "premium"
+    },
+    "parents": []
+  },
+  {
+    "uid": { "type": "AppPolicies::User", "id": "employee@securebank" },
+    "attrs": {
+      "id": "employee@securebank",
+      "externalId": "employee@securebank",
+      "displayName": "SecureBank Employee",
+      "department": "retail",
+      "active": true
+    },
+    "parents": []
+  }
+]

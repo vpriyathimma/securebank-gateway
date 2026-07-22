@@ -1,0 +1,62 @@
+# LiteLLM config for the SecureBank gateway demo.
+# Routes the agents to Azure Foundry AND runs the Reva authorization guardrail.
+#
+# The model_name strings ARE the authorization surface — whatever name the
+# gateway serves is the Model id the Reva hook puts in the eval, so it must
+# match the Model entity id in the SecureBank policy store.
+model_list:
+  # Standard model — intended to be open to everyone.
+  - model_name: gpt-5-mini
+    litellm_params:
+      model: azure/gpt-5-mini
+      api_base: https://cog-rhk3ufnktbvxq.openai.azure.com
+      api_key: os.environ/AZURE_API_KEY
+      api_version: "2024-12-01-preview"
+
+  # Gated model — intended to be denied to unauthorized agents/users.
+  - model_name: gpt-5.1-sharepoint
+    litellm_params:
+      model: azure/gpt-5.1-sharepoint
+      api_base: https://cog-rhk3ufnktbvxq.openai.azure.com
+      api_key: os.environ/AZURE_API_KEY
+      api_version: "2024-12-01-preview"
+
+general_settings:
+  master_key: sk-foundry-test
+
+litellm_settings:
+  drop_params: true
+  set_verbose: false
+
+# SecureBank's MCP tool server, fronted by LiteLLM so tool calls route through
+# the gateway (where the pre_mcp_call guardrail evaluates invokeTool). The key
+# "reva_mcp" is the routing id the agent sends as server_id (LiteLLM forbids "-"
+# in these names); the Reva resource is named via metadata.reva_server_id.
+mcp_servers:
+  reva_mcp:
+    url: "https://reva-mcp-server-v2.onrender.com/mcp"
+    transport: "http"
+    description: "SecureBank MCP tools (market analysis, FIGI, compliance, valuation, credit risk)"
+  # SecureBank sub-agents (credit, sharepoint) wrapped as MCP so finbot's
+  # delegation traverses the gateway and Reva can authorize invokeAgent.
+  # Served by agent_mcp_server.py (started before LiteLLM in run_local.sh).
+  reva_agents:
+    url: "http://localhost:8090/mcp"
+    transport: "http"
+    description: "SecureBank sub-agents exposed as MCP (credit-agent, sharepoint-agent)"
+
+# Reva authorization guardrail. Imported from reva_auth_hook.py in this folder
+# (LiteLLM starts from here, so it's importable). Two registrations of the same
+# class: pre_call gates LLM model calls, pre_mcp_call gates MCP tool calls.
+# Behaviour (log vs enforce), PDP url, store id and token come from .env.
+guardrails:
+  - guardrail_name: reva-authorization
+    litellm_params:
+      guardrail: reva_auth_hook.RevaAuthHook
+      mode: pre_call
+      default_on: true
+  - guardrail_name: reva-authorization-mcp
+    litellm_params:
+      guardrail: reva_auth_hook.RevaAuthHook
+      mode: pre_mcp_call
+      default_on: true

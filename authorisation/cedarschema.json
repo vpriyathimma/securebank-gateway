@@ -1,0 +1,708 @@
+{
+  "AppPolicies": {
+    "commonTypes": {
+      "SharedContext": {
+        "type": "Record",
+        "attributes": {
+          "onBehalfOf": {
+            "type": "Entity",
+            "name": "User",
+            "required": false
+          },
+          "chain": {
+            "type": "Record",
+            "required": true,
+            "attributes": {
+              "depth": {
+                "type": "Long",
+                "required": true
+              },
+              "ancestors": {
+                "type": "Set",
+                "required": true,
+                "element": {
+                  "type": "String"
+                }
+              },
+              "rootPrincipalType": {
+                "type": "String",
+                "required": false
+              }
+            }
+          },
+          "timestamp": {
+            "type": "Long",
+            "required": true
+          },
+          "sourceIp": {
+            "type": "String",
+            "required": false
+          },
+          "geo": {
+            "type": "Record",
+            "required": false,
+            "attributes": {
+              "country": {
+                "type": "String",
+                "required": false
+              },
+              "region": {
+                "type": "String",
+                "required": false
+              }
+            }
+          },
+          "network": {
+            "type": "String",
+            "required": false
+          },
+          "authStrength": {
+            "type": "Record",
+            "required": false,
+            "attributes": {
+              "mfa": {
+                "type": "Boolean",
+                "required": true
+              },
+              "sessionAgeSeconds": {
+                "type": "Long",
+                "required": true
+              },
+              "assuranceLevel": {
+                "type": "String",
+                "required": false
+              }
+            }
+          },
+          "rate": {
+            "type": "Record",
+            "required": false,
+            "attributes": {
+              "lastMinute": {
+                "type": "Long",
+                "required": true
+              },
+              "lastHour": {
+                "type": "Long",
+                "required": true
+              },
+              "lastDay": {
+                "type": "Long",
+                "required": false
+              }
+            }
+          },
+          "anomaly": {
+            "type": "Record",
+            "required": false,
+            "attributes": {
+              "score": {
+                "type": "Long",
+                "required": true
+              },
+              "reasons": {
+                "type": "Set",
+                "required": false,
+                "element": {
+                  "type": "String"
+                }
+              }
+            }
+          },
+          "approvalToken": {
+            "type": "String",
+            "required": false
+          },
+          "environment": {
+            "type": "String",
+            "required": false
+          }
+        }
+      },
+      "HttpContext": {
+        "type": "Record",
+        "attributes": {
+          "http": {
+            "type": "Record",
+            "required": true,
+            "attributes": {
+              "method": {
+                "type": "String",
+                "required": true
+              },
+              "path": {
+                "type": "String",
+                "required": false
+              },
+              "operationId": {
+                "type": "String",
+                "required": false
+              },
+              "queryParams": {
+                "type": "Set",
+                "required": false,
+                "element": {
+                  "type": "String"
+                }
+              }
+            }
+          },
+          "fields": {
+            "type": "Set",
+            "required": false,
+            "element": {
+              "type": "String"
+            }
+          }
+        }
+      }
+    },
+    "actions": {
+      "invokeAgent": {
+        "appliesTo": {
+          "context": {
+            "type": "SharedContext"
+          },
+          "principalTypes": [
+            "User",
+            "ServiceAccounts",
+            "CloudFunctions",
+            "UserGroup",
+            "Agent"
+          ],
+          "resourceTypes": [
+            "Agent"
+          ]
+        },
+        "memberOf": []
+      },
+      "invokeModel": {
+        "appliesTo": {
+          "context": {
+            "type": "SharedContext"
+          },
+          "principalTypes": [
+            "Agent"
+          ],
+          "resourceTypes": [
+            "Model"
+          ]
+        },
+        "memberOf": []
+      },
+      "invokeTool": {
+        "appliesTo": {
+          "context": {
+            "type": "SharedContext"
+          },
+          "principalTypes": [
+            "Agent",
+            "User",
+            "ServiceAccounts"
+          ],
+          "resourceTypes": [
+            "Tool"
+          ]
+        },
+        "memberOf": []
+      },
+      "listTools": {
+        "appliesTo": {
+          "context": {
+            "type": "SharedContext"
+          },
+          "principalTypes": [
+            "Agent",
+            "User",
+            "ServiceAccounts"
+          ],
+          "resourceTypes": [
+            "MCPServer"
+          ]
+        },
+        "memberOf": []
+      },
+      "read": {
+        "appliesTo": {
+          "context": {
+            "type": "HttpContext"
+          },
+          "principalTypes": [
+            "User",
+            "ServiceAccounts",
+            "CloudFunctions",
+            "UserGroup",
+            "Agent"
+          ],
+          "resourceTypes": [
+            "API"
+          ]
+        },
+        "memberOf": []
+      },
+      "write": {
+        "appliesTo": {
+          "context": {
+            "type": "HttpContext"
+          },
+          "principalTypes": [
+            "User",
+            "ServiceAccounts",
+            "CloudFunctions",
+            "UserGroup",
+            "Agent"
+          ],
+          "resourceTypes": [
+            "API"
+          ]
+        },
+        "memberOf": []
+      },
+      "delete": {
+        "appliesTo": {
+          "context": {
+            "type": "HttpContext"
+          },
+          "principalTypes": [
+            "User",
+            "ServiceAccounts",
+            "CloudFunctions",
+            "UserGroup",
+            "Agent"
+          ],
+          "resourceTypes": [
+            "API"
+          ]
+        },
+        "memberOf": []
+      }
+    },
+    "entityTypes": {
+      "User": {
+        "shape": {
+          "type": "Record",
+          "attributes": {
+            "id": {
+              "type": "String",
+              "required": true
+            },
+            "externalId": {
+              "type": "String",
+              "required": true
+            },
+            "displayName": {
+              "type": "String",
+              "required": true
+            },
+            "nickName": {
+              "type": "String",
+              "required": false
+            },
+            "profileUrl": {
+              "type": "String",
+              "required": false
+            },
+            "title": {
+              "type": "String",
+              "required": false
+            },
+            "userType": {
+              "type": "String",
+              "required": false
+            },
+            "preferredLanguage": {
+              "type": "String",
+              "required": false
+            },
+            "locale": {
+              "type": "String",
+              "required": false
+            },
+            "timezone": {
+              "type": "String",
+              "required": false
+            },
+            "active": {
+              "type": "Boolean",
+              "required": true
+            },
+            "manager": {
+              "type": "Entity",
+              "name": "User",
+              "required": false
+            },
+            "department": {
+              "type": "String",
+              "required": false
+            },
+            "riskTier": {
+              "type": "String",
+              "required": false
+            },
+            "allowedIntents": {
+              "type": "Set",
+              "required": false,
+              "element": {
+                "type": "String"
+              }
+            }
+          }
+        },
+        "memberOfTypes": [
+          "UserGroup"
+        ]
+      },
+      "UserGroup": {
+        "shape": {
+          "type": "Record",
+          "attributes": {
+            "id": {
+              "type": "String",
+              "required": true
+            },
+            "name": {
+              "type": "String",
+              "required": true
+            }
+          }
+        }
+      },
+      "ServiceAccounts": {
+        "shape": {
+          "type": "Record",
+          "attributes": {
+            "id": {
+              "type": "String",
+              "required": true
+            },
+            "name": {
+              "type": "String",
+              "required": true
+            },
+            "scopes": {
+              "type": "Set",
+              "required": false,
+              "element": {
+                "type": "String"
+              }
+            },
+            "active": {
+              "type": "Boolean",
+              "required": true
+            }
+          }
+        }
+      },
+      "CloudFunctions": {
+        "shape": {
+          "type": "Record",
+          "attributes": {
+            "id": {
+              "type": "String",
+              "required": true
+            },
+            "name": {
+              "type": "String",
+              "required": true
+            },
+            "runtime": {
+              "type": "String",
+              "required": false
+            },
+            "region": {
+              "type": "String",
+              "required": false
+            }
+          }
+        }
+      },
+      "Skill": {
+        "shape": {
+          "type": "Record",
+          "attributes": {
+            "id": {
+              "type": "String",
+              "required": true
+            },
+            "name": {
+              "type": "String",
+              "required": true
+            },
+            "description": {
+              "type": "String",
+              "required": true
+            },
+            "source": {
+              "type": "String",
+              "required": true
+            },
+            "riskTier": {
+              "type": "String",
+              "required": false
+            }
+          }
+        }
+      },
+      "Model": {
+        "shape": {
+          "type": "Record",
+          "attributes": {
+            "id": {
+              "type": "String",
+              "required": true
+            },
+            "modelId": {
+              "type": "String",
+              "required": true
+            },
+            "name": {
+              "type": "String",
+              "required": true
+            },
+            "description": {
+              "type": "String",
+              "required": false
+            },
+            "provider": {
+              "type": "String",
+              "required": true
+            },
+            "version": {
+              "type": "String",
+              "required": false
+            },
+            "region": {
+              "type": "String",
+              "required": false
+            },
+            "dataResidency": {
+              "type": "String",
+              "required": false
+            },
+            "modality": {
+              "type": "Set",
+              "required": false,
+              "element": {
+                "type": "String"
+              }
+            },
+            "allowedClassifications": {
+              "type": "Set",
+              "required": false,
+              "element": {
+                "type": "String"
+              }
+            },
+            "deprecated": {
+              "type": "Boolean",
+              "required": false
+            }
+          }
+        }
+      },
+      "Tool": {
+        "shape": {
+          "type": "Record",
+          "attributes": {
+            "id": {
+              "type": "String",
+              "required": true
+            },
+            "name": {
+              "type": "String",
+              "required": true
+            },
+            "description": {
+              "type": "String",
+              "required": true
+            },
+            "toolType": {
+              "type": "String",
+              "required": false
+            },
+            "connectionType": {
+              "type": "String",
+              "required": false
+            },
+            "scopes": {
+              "type": "Set",
+              "required": false,
+              "element": {
+                "type": "String"
+              }
+            },
+            "dataClassification": {
+              "type": "String",
+              "required": false
+            },
+            "riskTier": {
+              "type": "String",
+              "required": false
+            },
+            "requiresHumanApproval": {
+              "type": "Boolean",
+              "required": false
+            },
+            "version": {
+              "type": "String",
+              "required": false
+            },
+            "deprecated": {
+              "type": "Boolean",
+              "required": false
+            }
+          }
+        },
+        "memberOfTypes": [
+          "MCPServer"
+        ]
+      },
+      "MCPServer": {
+        "shape": {
+          "type": "Record",
+          "attributes": {
+            "id": {
+              "type": "String",
+              "required": true
+            },
+            "name": {
+              "type": "String",
+              "required": true
+            },
+            "description": {
+              "type": "String",
+              "required": true
+            },
+            "transport": {
+              "type": "String",
+              "required": true
+            },
+            "baseUrl": {
+              "type": "String",
+              "required": true
+            },
+            "connectionType": {
+              "type": "String",
+              "required": true
+            },
+            "trustTier": {
+              "type": "String",
+              "required": false
+            },
+            "allowedDataClassifications": {
+              "type": "Set",
+              "required": false,
+              "element": {
+                "type": "String"
+              }
+            }
+          }
+        }
+      },
+      "API": {
+        "shape": {
+          "type": "Record",
+          "attributes": {
+            "id": {
+              "type": "String",
+              "required": true
+            },
+            "name": {
+              "type": "String",
+              "required": true
+            },
+            "description": {
+              "type": "String",
+              "required": false
+            },
+            "baseUrl": {
+              "type": "String",
+              "required": true
+            },
+            "endpoint": {
+              "type": "String",
+              "required": true
+            },
+            "operationId": {
+              "type": "String",
+              "required": false
+            },
+            "dataClassification": {
+              "type": "String",
+              "required": false
+            },
+            "riskTier": {
+              "type": "String",
+              "required": false
+            },
+            "rateLimit": {
+              "type": "Record",
+              "required": false,
+              "attributes": {
+                "perMinute": {
+                  "type": "Long",
+                  "required": true
+                },
+                "perHour": {
+                  "type": "Long",
+                  "required": true
+                }
+              }
+            }
+          }
+        }
+      },
+      "Agent": {
+        "shape": {
+          "type": "Record",
+          "attributes": {
+            "id": {
+              "type": "String",
+              "required": true
+            },
+            "name": {
+              "type": "String",
+              "required": true
+            },
+            "description": {
+              "type": "String",
+              "required": true
+            },
+            "status": {
+              "type": "String",
+              "required": false
+            },
+            "skills": {
+              "type": "Set",
+              "required": false,
+              "element": {
+                "name": "Skill",
+                "type": "Entity"
+              }
+            },
+            "pathUrl": {
+              "type": "String",
+              "required": true
+            },
+            "version": {
+              "type": "String",
+              "required": false
+            },
+            "riskTier": {
+              "type": "String",
+              "required": false
+            },
+            "maxChainDepth": {
+              "type": "Long",
+              "required": false
+            },
+            "dataClassificationCeiling": {
+              "type": "String",
+              "required": false
+            }
+          }
+        }
+      }
+    }
+  }
+}

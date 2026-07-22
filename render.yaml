@@ -1,0 +1,54 @@
+# Render Blueprint — SecureBank gateway (no-SDK) as ONE web service.
+# Runs sub-agent MCP (:8090) + LiteLLM+Reva (:4010) + FinBot (:$PORT) together.
+# Only FinBot is public; the other two are internal (localhost).
+services:
+  - type: web
+    name: securebank-gateway
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.local.txt
+    startCommand: ./start.sh
+    healthCheckPath: /health
+    envVars:
+      # ── Secrets — set these in the Render dashboard (sync:false) ──
+      - key: AZURE_API_KEY          # Azure Foundry key
+        sync: false
+      - key: REVA_AUTH_TOKEN        # Reva PDP token (preview tokens expire — refresh before demo)
+        sync: false
+      # Optional — only needed if you demo the SharePoint sub-agent. Core
+      # credit/tool demo works without these. Never hardcode them in code.
+      - key: AZURE_CLIENT_SECRET
+        sync: false
+      - key: REVA_FOUNDRY_API_KEY
+        sync: false
+      # ── Reva authorization ──
+      - key: REVA_PDP_URL
+        value: https://api.pr06.preview.reva.ai/pdp/access/v1/ai/evaluation
+      - key: REVA_POLICYSTORE_ID
+        value: 9a8c5759-b1ca-4c98-9346-2426338df333
+      - key: REVA_PDP_ORIGIN
+        value: https://demo.preview.reva.ai
+      - key: REVA_SCHEMA_MODE
+        value: agent_v5
+      - key: REVA_HOOK_MODE
+        value: enforce
+      # ── LiteLLM (internal) ──
+      - key: LITELLM_BASE_URL
+        value: http://localhost:4010/v1
+      - key: LITELLM_MODEL
+        value: gpt-5-mini
+      - key: LITELLM_MASTER_KEY
+        value: sk-foundry-test
+      # ── App wiring ──
+      - key: REVA_USER
+        value: employee@securebank
+      - key: MCP_SERVER_URL
+        value: https://reva-mcp-server-v2.onrender.com
+      - key: AGENT_MCP_PORT
+        value: "8090"
+      - key: MCP_VIA_GATEWAY
+        value: "true"
+      - key: AGENT_VIA_GATEWAY
+        value: "true"
+      - key: SECUREBANK_URL
+        value: https://securebank-app-v2.onrender.com

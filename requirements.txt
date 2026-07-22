@@ -1,0 +1,23 @@
+langgraph>=1.0.0
+langchain>=0.3.0
+# langchain-google-genai>=2.0.0   # removed in gateway version (no SDK / no Gemini)
+langchain-xai>=0.2.0
+fastapi>=0.115.0
+uvicorn>=0.34.0
+python-dotenv>=1.0.0
+# [brotli] extra: agent→agent / agent→MCP calls go through Cloudflare, which
+# Brotli-compresses responses (content-encoding: br). Without this, httpx cannot
+# decode `br` and resp.json() raises → /chat 500. See also LANGGRAPH_SELF_URL.
+httpx[brotli]>=0.28.0
+pydantic>=2.0.0
+
+# Reva AI security plugin (private GitLab PyPI). Requires GITLAB_TOKEN env var.
+--extra-index-url https://gitlab-ci-token:${GITLAB_TOKEN}@gitlab.com/api/v4/projects/79677554/packages/pypi/simple
+# reva-ai==1.2.17   # removed in gateway version (no SDK / no Gemini)
+msal
+PyPDF2
+python-docx
+msal
+PyPDF2
+python-docx
+langchain-openai
