@@ -1,0 +1,1038 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
+    <style>
+      #finbot-panel {
+        /* Hidden until /api/auth/me confirms a signed-in session (see fbInit at
+           the bottom of this file). Default-hidden rather than hide-on-401 so the
+           widget never flashes on the login page while that request is in flight. */
+        display: none;
+        position: fixed;
+        bottom: 24px;
+        right: 24px;
+        z-index: 9999;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      }
+      #finbot-panel.fb-ready { display: block; }
+      #finbot-trigger {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        background: #1d4ed8;
+        color: white;
+        border: none;
+        border-radius: 12px;
+        padding: 12px 18px;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 600;
+        box-shadow: 0 4px 16px rgba(29,78,216,0.4);
+        transition: background 0.2s;
+      }
+      #finbot-trigger:hover { background: #1e40af; }
+      #finbot-trigger svg { width: 20px; height: 20px; fill: white; }
+      #finbot-window {
+        display: none;
+        flex-direction: column;
+        width: 380px;
+        height: 500px;
+        background: white;
+        border-radius: 16px;
+        box-shadow: 0 12px 40px rgba(0,0,0,0.18);
+        border: 1px solid #e5e7eb;
+        margin-bottom: 12px;
+        overflow: hidden;
+      }
+      #finbot-window.open { display: flex; }
+      #finbot-header {
+        background: linear-gradient(135deg, #1d4ed8, #2563eb);
+        padding: 14px 16px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      #finbot-header-left { display: flex; align-items: center; gap: 10px; }
+      #finbot-avatar {
+        width: 36px; height: 36px;
+        background: rgba(255,255,255,0.2);
+        border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+      }
+      #finbot-avatar svg { width: 20px; height: 20px; fill: white; }
+      #finbot-title { color: white; font-weight: 700; font-size: 15px; }
+      #finbot-subtitle { color: #bfdbfe; font-size: 11px; margin-top: 1px; }
+      #finbot-header-actions { display: flex; align-items: center; gap: 6px; }
+      #finbot-close, #finbot-newchat {
+        background: rgba(255,255,255,0.15);
+        border: none; color: white; cursor: pointer;
+        border-radius: 8px; padding: 4px 8px; font-size: 16px;
+      }
+      #finbot-newchat {
+        font-size: 11px; font-weight: 600; padding: 5px 9px;
+        white-space: nowrap;
+      }
+      #finbot-close:hover, #finbot-newchat:hover { background: rgba(255,255,255,0.28); }
+      #finbot-newchat:disabled { opacity: 0.45; cursor: not-allowed; }
+      #finbot-messages {
+        flex: 1; overflow-y: auto;
+        padding: 14px; background: #f8fafc;
+        display: flex; flex-direction: column; gap: 10px;
+      }
+      .fb-msg {
+        max-width: 82%; padding: 10px 14px;
+        border-radius: 14px; font-size: 13px; line-height: 1.5;
+      }
+      .fb-bot {
+        background: white; color: #1e293b;
+        align-self: flex-start;
+        border-bottom-left-radius: 4px;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+      }
+      .fb-user {
+        background: #1d4ed8; color: white;
+        align-self: flex-end;
+        border-bottom-right-radius: 4px;
+      }
+      #finbot-input-row {
+        padding: 12px; border-top: 1px solid #e5e7eb;
+        display: flex; gap: 8px; background: white;
+      }
+      #finbot-input {
+        flex: 1; border: 1px solid #d1d5db;
+        border-radius: 10px; padding: 9px 13px;
+        font-size: 13px; outline: none;
+        transition: border-color 0.2s;
+      }
+      #finbot-input:focus { border-color: #2563eb; }
+      #finbot-send {
+        background: #1d4ed8; color: white;
+        border: none; border-radius: 10px;
+        padding: 9px 16px; cursor: pointer;
+        font-size: 13px; font-weight: 600;
+        transition: background 0.2s;
+      }
+      #finbot-send:hover { background: #1e40af; }
+      #finbot-send:disabled { opacity: 0.4; cursor: not-allowed; }
+      /* Seed prompts — the demo script for whoever is signed in. Above the
+         input rather than in the thread, so they never read as FinBot saying
+         something. */
+      #finbot-chips {
+        display: flex; flex-wrap: wrap; gap: 6px;
+        padding: 10px 12px 0; background: white; border-top: 1px solid #e5e7eb;
+      }
+      #finbot-chips:empty { display: none; }
+      #finbot-chips:not(:empty) + #finbot-input-row { border-top: none; }
+      .fb-chip {
+        background: #eff6ff; border: 1px solid #bfdbfe; color: #1e40af;
+        border-radius: 999px; padding: 4px 10px; font-size: 11.5px; line-height: 1.35;
+        cursor: pointer; text-align: left; max-width: 100%;
+      }
+      .fb-chip:hover { background: #dbeafe; border-color: #93c5fd; }
+      .fb-typing { display: flex; gap: 4px; align-items: center; padding: 12px 14px; }
+      .fb-dot {
+        width: 7px; height: 7px; background: #94a3b8;
+        border-radius: 50%; animation: fb-bounce 1.2s infinite;
+      }
+      /* A policy block is NOT an answer. Rendered as a plain bot bubble it read
+         as though the request had succeeded, so it gets its own treatment: amber
+         rail, tinted background, and a "Blocked by policy" label. */
+      .fb-msg.fb-blocked {
+        background: #fffbeb;
+        border: 1px solid #fde68a;
+        border-left: 4px solid #d97706;
+        color: #78350f;
+      }
+      /* Reva ALLOWED the turn but the model's own safety filter refused it —
+         a different outcome from a policy block, so it gets a neutral slate
+         treatment rather than the amber policy rail. */
+      .fb-msg.fb-filtered {
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-left: 4px solid #64748b;
+        color: #334155;
+      }
+      /* Why the turn was refused: the store policy that fired, from the hop the
+         agent reports (see fbWhyHTML). A panel inside the amber card, so the
+         agent's own reply still reads underneath. */
+      .fb-why {
+        display: block;
+        background: rgba(255,255,255,0.7); border: 1px solid #fde68a;
+        border-radius: 8px; padding: 7px 9px; margin: 2px 0 8px;
+      }
+      .fb-why-name { display: block; font-weight: 700; font-size: 11.5px; color: #78350f; }
+      .fb-why-kind { display: block; font-weight: 600; font-size: 10px; letter-spacing: 0.03em;
+                     text-transform: uppercase; color: #b45309; }
+      .fb-why-text { display: block; font-size: 12px; margin-top: 3px; }
+      /* What actually came back — always shown, so nothing on the card rests on
+         the scripted panel alone. */
+      .fb-foot {
+        display: block; margin-top: 8px; padding-top: 6px;
+        border-top: 1px dashed currentColor; opacity: 0.75;
+        font-family: ui-monospace, Menlo, monospace; font-size: 10.5px;
+        overflow-wrap: anywhere;
+      }
+      /* Authorization could not be COMPLETED — a token that would not verify, or
+         no decision at all. Not a refusal, so not the amber policy rail. */
+      .fb-msg.fb-fault {
+        background: #f0f9ff; border: 1px solid #bae6fd;
+        border-left: 4px solid #0284c7; color: #0c4a6e;
+      }
+      .fb-fault-label {
+        display: block; font-size: 10px; font-weight: 700; letter-spacing: 0.04em;
+        text-transform: uppercase; color: #0369a1; margin-bottom: 4px;
+      }
+      /* The session changed under this tab (another tab signed in as someone
+         else). Not an answer and not a refusal: neutral, and it says what to do. */
+      .fb-msg.fb-notice {
+        background: #f8fafc; border: 1px dashed #94a3b8; color: #334155;
+        align-self: stretch; max-width: 100%; font-size: 12px;
+      }
+      .fb-filtered-label {
+        display: block;
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        color: #475569;
+        margin-bottom: 4px;
+      }
+      /* ── Approvals queue ────────────────────────────────────────────────
+         The approver's side of HITL. Sits beside the FinBot widget and outside
+         React, for the same reason the widget does: it is demo scaffolding for
+         a control, not part of the banking app's component tree. */
+      #approvals-panel {
+        position: fixed; right: 24px; bottom: 140px; width: 340px; z-index: 9998;
+        display: none; font-family: system-ui, -apple-system, sans-serif;
+      }
+      #approvals-panel.open { display: block; }
+      #approvals-card {
+        background: #fff; border: 1px solid #e2e8f0; border-radius: 12px;
+        box-shadow: 0 12px 32px rgba(15,23,42,0.16); overflow: hidden;
+      }
+      #approvals-head {
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 10px 14px; background: #1e293b; color: #fff; font-size: 13px; font-weight: 600;
+      }
+      #approvals-head button {
+        background: none; border: none; color: #cbd5e1; cursor: pointer; font-size: 16px; line-height: 1;
+      }
+      #approvals-list { max-height: 320px; overflow-y: auto; }
+      .ap-item { padding: 12px 14px; border-bottom: 1px solid #f1f5f9; font-size: 12px; color: #334155; }
+      .ap-item:last-child { border-bottom: none; }
+      .ap-tool { font-weight: 700; color: #0f172a; }
+      .ap-meta { color: #64748b; margin: 3px 0 8px; }
+      .ap-args { background: #f8fafc; border-radius: 6px; padding: 6px 8px; margin-bottom: 8px;
+                 font-family: ui-monospace, Menlo, monospace; font-size: 11px; color: #475569; }
+      .ap-actions button {
+        border: 1px solid transparent; border-radius: 6px; padding: 5px 12px;
+        font-size: 12px; font-weight: 600; cursor: pointer; margin-right: 6px;
+      }
+      .ap-approve { background: #16a34a; color: #fff; }
+      .ap-reject  { background: #fff; color: #b91c1c; border-color: #fecaca !important; }
+      .ap-note { color: #b45309; margin-top: 6px; font-size: 11px; }
+      .ap-empty { padding: 18px 14px; color: #64748b; font-size: 12px; text-align: center; }
+      #approvals-toggle {
+        /* Above the FinBot launcher, which owns the bottom-right corner. */
+        position: fixed; right: 24px; bottom: 84px; z-index: 9998; display: none;
+        background: #1e293b; color: #fff; border: none; border-radius: 999px;
+        padding: 10px 16px; font-size: 13px; font-weight: 600; cursor: pointer;
+        box-shadow: 0 6px 18px rgba(15,23,42,0.24);
+      }
+      #approvals-toggle.visible { display: block; }
+      #approvals-count {
+        background: #ef4444; color: #fff; border-radius: 999px; padding: 1px 7px;
+        font-size: 11px; margin-left: 6px;
+      }
+      /* Waiting on a person. Deliberately NOT the amber policy rail: nothing has
+         been refused, and reading this as a block is the wrong conclusion. */
+      .fb-msg.fb-pending {
+        background: #eff6ff;
+        border: 1px solid #bfdbfe;
+        border-left: 4px solid #2563eb;
+        color: #1e3a5f;
+      }
+      .fb-pending-label {
+        display: block;
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        color: #1d4ed8;
+        margin-bottom: 4px;
+      }
+      .fb-pending-meta {
+        display: block;
+        margin-top: 6px;
+        font-size: 11px;
+        color: #475569;
+      }
+      .fb-blocked-label {
+        display: block;
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        color: #b45309;
+        margin-bottom: 4px;
+      }
+      .fb-dot:nth-child(2) { animation-delay: 0.2s; }
+      .fb-dot:nth-child(3) { animation-delay: 0.4s; }
+      @keyframes fb-bounce { 0%,60%,100%{transform:translateY(0)} 30%{transform:translateY(-5px)} }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+
+    <!--
+      ============================================================================
+      FinBot chat widget — THE LIVE CHAT UI LIVES HERE (not in React).
+
+      This is the single source of truth for the FinBot assistant. It is a
+      self-contained vanilla-JS widget rendered by the browser directly from this
+      HTML file, OUTSIDE React's #root above — so it does NOT appear anywhere in
+      the React component tree (App.tsx / pages / components).
+
+      • Markup:      the #finbot-panel block below.
+      • Styles:      the #finbot-* CSS in <head>.
+      • Logic:       the <script> at the bottom (fbSend / fbNewChat / fbInit).
+      • Endpoint:    POST /api/agent/chat  (see app/server/routes.ts).
+      • Auth:        session cookie (credentials: 'include') — it does NOT send
+                     an Authorization: Bearer <TrAT> header.
+      • Visibility:  hidden by default; fbInit() reveals it only after
+                     GET /api/auth/me confirms a signed-in session, so it does
+                     not appear on the login page.
+      • Session:     fbSessionId is a page-scoped global, set from the first
+                     response and reused for every message. "＋ New Chat"
+                     (fbNewChat) clears it, which makes the server mint a new
+                     session id and an empty prompt history — a new Reva trace
+                     and a clean drift baseline, with no page reload.
+
+      To change chat behaviour, edit THIS file. Do not look for a React chat
+      component — a prior React implementation (src/FinBotChat.tsx) was orphaned,
+      never mounted, and has been deleted to avoid confusion.
+      ============================================================================
+    -->
+    <!-- Approvals queue — the APPROVER's side of the HITL flow. Deciding here
+         records a verdict; it does NOT run the action. The requester's client
+         replays the original turn carrying the verdict, and the policy decides.
+         See HITL-CONTRACT.md. -->
+    <button id="approvals-toggle">Approvals<span id="approvals-count">0</span></button>
+    <div id="approvals-panel">
+      <div id="approvals-card">
+        <div id="approvals-head">
+          <span>Waiting for your sign-off</span>
+          <button id="approvals-close" title="Close">×</button>
+        </div>
+        <div id="approvals-list"></div>
+      </div>
+    </div>
+
+    <div id="finbot-panel">
+      <div id="finbot-window">
+        <div id="finbot-header">
+          <div id="finbot-header-left">
+            <div id="finbot-avatar">
+              <svg viewBox="0 0 24 24"><path d="M12 2a2 2 0 012 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 017 7H3a7 7 0 017-7h1V5.73A2 2 0 0110 4a2 2 0 012-2M5 14v8h14v-8H5m2 2h2v2H7v-2m4 0h2v2h-2v-2m4 0h2v2h-2v-2z"/></svg>
+            </div>
+            <div>
+              <div id="finbot-title">FinBot</div>
+              <div id="finbot-subtitle"></div>
+            </div>
+          </div>
+          <div id="finbot-header-actions">
+            <button id="finbot-newchat" title="Start a new conversation — new trace id, cleared prompt history">＋ New Chat</button>
+            <button id="finbot-close" onclick="document.getElementById('finbot-window').classList.remove('open')">✕</button>
+          </div>
+        </div>
+        <div id="finbot-messages">
+          <div class="fb-msg fb-bot">Hi! I'm FinBot, your SecureBank AI assistant. I can help you with account queries, transactions, and loan information. How can I help you today?</div>
+        </div>
+        <div id="finbot-chips"></div>
+        <div id="finbot-input-row">
+          <input id="finbot-input" placeholder="Ask FinBot anything..." />
+          <button id="finbot-send">Send</button>
+        </div>
+      </div>
+
+      <button id="finbot-trigger" onclick="document.getElementById('finbot-window').classList.toggle('open')">
+        <svg viewBox="0 0 24 24"><path d="M12 2a2 2 0 012 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 017 7H3a7 7 0 017-7h1V5.73A2 2 0 0110 4a2 2 0 012-2M5 14v8h14v-8H5m2 2h2v2H7v-2m4 0h2v2h-2v-2m4 0h2v2h-2v-2z"/></svg>
+        Ask FinBot
+      </button>
+    </div>
+
+    <script type="module" src="/src/main.tsx"></script>
+    <script>
+      // Public base path for this inline widget. It is plain HTML-inline JS,
+      // so it cannot import src/lib/base-path.ts and has no import.meta.env.
+      // Its fetches were root-relative, which is why the FinBot panel was
+      // dead behind /securebank while the rest of the page worked.
+      //
+      // DERIVED, not hardcoded: Vite rewrites the module script src above
+      // with the build base, so the prefix is readable from the document.
+      //   base "/"            -> /assets/index-HASH.js        -> ""
+      //   base "/securebank/" -> /securebank/assets/index.js  -> "/securebank"
+      //   vite dev            -> /src/main.tsx (no /assets/)  -> ""
+      var BASE_PATH = (function () {
+        var s = document.querySelector('script[type="module"][src]');
+        var src = s ? s.getAttribute('src') || '' : '';
+        var i = src.lastIndexOf('/assets/');
+        return i > 0 ? src.slice(0, i) : '';
+      })();
+      function fbUrl(p) {
+        return BASE_PATH + (p.charAt(0) === '/' ? p : '/' + p);
+      }
+
+      // ── The browser owns the conversation ────────────────────────────────
+      // The agent is stateless and its instances are interchangeable, so
+      // anything accumulated server-side is empty exactly when a chat spans
+      // instances. The chat id, its start time, the turn number and the history
+      // therefore live here and travel on every request.
+      //
+      // The chat id is NOT the per-message trace id. Derive it from the trace and
+      // every message gets its own session — turn always 1, no two turns sharing
+      // an id — and nothing downstream can tell a trajectory from a first message.
+      let fbSessionId = null;       // minted here, stable until "New chat"
+      let fbChatStartedAt = null;   // ONE timestamp for the chat, never per-turn
+      let fbHistory = [];           // completed turns: {turn, request, response}
+      let fbSending = false;   // FinBot: only one request at a time
+      let fbGreetingHTML = ''; // the initial greeting bubble, captured on load
+      // The record the user is looking at, appended to every message.
+      //
+      // The agent has NO memory of earlier turns: it is invoked with a single
+      // message, and session_messages goes to the PDP, not to the model. So
+      // "approve it" on turn 2 resolves to nothing — and this app's agent does
+      // not ask "which loan?", it re-lists and picks one, which is worse than
+      // asking because the limitation stays invisible until it picks a
+      // different one.
+      //
+      // This is a UI affordance doing the work of conversational memory. It is
+      // not memory, and it does not become memory by being useful.
+      let fbEntity = null;   // { label: 'Loan', id: '…' }
+
+      // The PDP refuses a body over 1 MiB before authorization, so an unbounded
+      // history degrades into hard failures as a chat gets longer. The agent
+      // bounds it too; this keeps the request small to begin with.
+      const FB_MAX_TURNS = 10;
+      const FB_MAX_CHARS = 2000;
+      // A governed turn with guardrails in enforce mode takes tens of seconds,
+      // and the browser's own fetch timeout is not ours to rely on.
+      const FB_TIMEOUT_MS = 180000;
+      // A person has to read the request, so the request timeout above does not
+      // apply while we are waiting for one. Wiring the two together is how a
+      // pending approval silently becomes a client timeout after three minutes.
+      const FB_APPROVAL_WAIT_MS = 15 * 60 * 1000;
+      const FB_APPROVAL_POLL_MS = 3000;
+
+      // ── Seed prompts ─────────────────────────────────────────────────────
+      // PER PERSON, because the prompts are the demo script (DEMO.md) and the
+      // script is not the same for both. Keyed by the local part of the signed-in
+      // email: /api/auth/me reports mike.wilson@reva.ai locally and
+      // mike.wilson@revapreview.onmicrosoft.com behind Entra, and both are Mike.
+      //
+      // In script order, FB_MAX_CHIPS at a time. A prompt retires when it is
+      // SUBMITTED — clicked or typed, allowed or refused — so the next beat
+      // slides in. "＋ New Chat" brings them all back.
+      //
+      // Deliberately NOT here: 10-c1, the execute_instrument_trade prompt. It
+      // books a real trade, and a one-click trade is the wrong affordance for a
+      // control that exists to prove the hop is allowed when asked for outright.
+      // Nor Mike's credit-risk beat (DEMO.md 4): his script is screening,
+      // document summaries and the AUTO-ABS review; credit risk is Sarah's.
+      const FB_OPENERS_BY_PERSONA = {
+        'mike.wilson': [
+          'screen John Smith against OFAC and sanctions watchlists',
+          'summarize customer_report.pdf',
+          'summarize arjun_mehta_loan_application.pdf',
+          'review the AUTO-ABS-2024-C position document for account PF-4471',
+          'summarize quarterly_portfolio_review.txt'
+        ],
+        'sarah.johnson': [
+          'screen John Smith against OFAC and sanctions watchlists',
+          'what is the credit risk for John Smith',
+          'approve the loan for Tom Bradley'
+        ]
+      };
+      const FB_MAX_CHIPS = 5;
+
+      // ── Why a turn was refused ───────────────────────────────────────────
+      // The PDP never names the policy that fired — its reason is almost always
+      // "authorization denied by policy". But every forbid in the store names
+      // exactly one principal, action and resource, so the resource the agent
+      // reports as refused (data.deny.resource), plus the approval verdict that
+      // hop carried and who is signed in, identifies the policy.
+      //
+      // Transcribed from the store's forbids (securebank/policiesinstore.txt):
+      // `name` is the policy's name in Reva, so it can be found in the console;
+      // `why` is its description in words. Order matters — the first rule that
+      // matches wins, so a narrower rule goes above a broader one.
+      //
+      // SUFFIX-FREE. Every entity id carries the deployment's ENTITY_SUFFIX
+      // (finbot-agent-local, finbot-agent-sbv2, …), so rules are keyed by the
+      // bare id and `{s}` in a name is the active suffix. A table keyed by the
+      // -local ids matched nothing on a -sbv2 store and showed only the generic
+      // card. The names were exported from the -local store; on another store
+      // they assume the same forbids under that store's ids.
+      //
+      // A rule claims a deny only when EVERYTHING it names matches. A resource
+      // no rule claims gets the generic card with the real resource on it —
+      // never a guess at the nearest policy.
+      const FB_POLICIES = [
+        { resource: 'reva-mcp-server/check_compliance', persona: 'mike.wilson',
+          name: 'Deny invokeTool on reva-mcp-server{s}/check_compliance for finbot-agent{s} on behalf of mike.wilson@reva.ai',
+          why: 'Compliance screening is off-limits to Mike Wilson: this policy forbids FinBot from calling the check_compliance tool on his behalf.' },
+        { resource: 'credit-agent', persona: 'sarah.johnson',
+          name: 'Deny invokeAgent for finbot-agent{s} on credit-agent{s}',
+          why: 'Sarah Johnson asked for credit-risk scoring. This policy forbids FinBot from handing a credit-risk-scoring request to the Credit Agent on her behalf.' },
+        { resource: 'documents-agent',
+          name: 'Deny invokeAgent on documents-agent{s} for finbot-agent{s}',
+          why: 'FinBot is currently rated RISKY and the document is labelled Restricted. Together they trigger this policy, which forbids FinBot from handing the document to the Documents Agent.' },
+        { resource: 'approve-loan', hitl: 'rejected',
+          name: 'Deny invokeTool on approve-loan{s} for finbot-agent{s}',
+          why: 'The approver rejected this request, and this policy makes a rejection binding: FinBot may not approve the loan.' },
+        { resource: 'approve-loan',
+          name: 'Deny invokeTool on approve-loan{s} for finbot-agent{s}',
+          why: 'Only members of the senior-underwriters group may approve a loan. {who} is not one, so this policy stops FinBot from approving it. An approval from someone else does not change who is asking.' }
+      ];
+      // Hops no forbid names. A refusal there came from a runtime guardrail.
+      const FB_GUARDRAILS = [
+        { resource: 'reva-mcp-server/execute_instrument_trade',
+          name: 'Intent drift',
+          why: 'The trade was not part of what you asked for. No policy in the store names execute_instrument_trade; the runtime intent-drift guardrail compared this step with your request and blocked it.' }
+      ];
+      const FB_GENERIC_REASONS = ['', 'authorization denied by policy', 'pdp denied',
+                                  'denied by policy', 'access denied'];
+      const FB_FAULT_LABELS = {
+        token: '⚠ Couldn\'t verify this request',
+        unavailable: '⚠ Authorization service unavailable',
+        error: '⚠ Authorization error'
+      };
+      let fbExplain = true;   // DEMO_EXPLAIN_DENIES, from /api/auth/me
+      let fbMeName = '';
+      let fbSuffix = '-local'; // ENTITY_SUFFIX, from /api/auth/me
+
+      // "reva-mcp-server-sbv2/check_compliance" -> "reva-mcp-server/check_compliance"
+      function fbBareId(id) {
+        if (!fbSuffix) return String(id || '');
+        return String(id || '').split('/').map(seg =>
+          seg.endsWith(fbSuffix) ? seg.slice(0, -fbSuffix.length) : seg).join('/');
+      }
+
+      function fbMatch(rules, deny) {
+        const bare = fbBareId(deny.resource);
+        return rules.find(r => r.resource === bare &&
+          (!r.persona || r.persona === fbPersona) &&
+          (!r.hitl || r.hitl === deny.hitl)) || null;
+      }
+
+      // The scripted panel: which store policy (or guardrail) refused the hop.
+      function fbWhyHTML(data) {
+        const deny = data && data.deny;
+        if (!fbExplain || !deny || !deny.resource) return '';
+        const policy = fbMatch(FB_POLICIES, deny);
+        const guard = policy ? null : fbMatch(FB_GUARDRAILS, deny);
+        const hit = policy || guard;
+        if (!hit) return '';
+        const why = hit.why.replace('{who}', fbMeName || 'The requester');
+        const name = hit.name.split('{s}').join(fbSuffix);
+        return '<span class="fb-why">' +
+          '<span class="fb-why-kind">' + (policy ? 'Reva policy' : 'Runtime guardrail') + '</span>' +
+          '<span class="fb-why-name">' + fbEsc(name) + '</span>' +
+          '<span class="fb-why-text">' + fbEsc(why) + '</span></span>';
+      }
+
+      // What actually came back: the refused hop, the PDP's reason when it says
+      // more than "denied by policy", and the trace to find it in the decision log.
+      function fbFootHTML(data) {
+        const parts = [];
+        const deny = data && data.deny;
+        if (deny && deny.resource) parts.push('refused: ' + fbEsc(deny.resource));
+        if (deny && deny.hitl) parts.push('approval: ' + fbEsc(deny.hitl));
+        const reason = deny ? String(deny.reason || '').trim() : '';
+        if (reason && FB_GENERIC_REASONS.indexOf(reason.toLowerCase()) < 0) {
+          parts.push('PDP: ' + fbEsc(reason.slice(0, 200)));
+        }
+        if (data && data.fault) parts.push('not a policy decision');
+        if (data && data.ranAs) parts.push('ran as ' + fbEsc(data.ranAs));
+        if (data && data.traceId) parts.push('trace ' + fbEsc(String(data.traceId).slice(0, 12)) + '…');
+        return parts.length ? '<span class="fb-foot">' + parts.join(' · ') + '</span>' : '';
+      }
+      let fbPersona = '';          // local part of the signed-in email
+      let fbAsked = new Set();     // normalised prompts submitted this chat
+      const fbNorm = (s) => String(s || '').trim().toLowerCase();
+
+      // ── Who is signed in, checked again before every send ─────────────────
+      // A browser holds ONE session cookie per site. Signing in as Sarah in
+      // another tab — which beats 5–7 invite — silently makes every tab Sarah,
+      // while this widget, which asked /api/auth/me once at page load, kept
+      // showing Mike's name and Mike's chips. Every message then went out as
+      // Sarah under Mike's header. So the widget asks again before it sends, and
+      // refuses to send a message typed as one person on behalf of another.
+      function fbApplyIdentity(me) {
+        const subtitle = [me.name, me.role].filter(Boolean).join(' · ');
+        document.getElementById('finbot-subtitle').textContent = subtitle;
+        fbPersona = fbNorm(String(me.email || me.sub || '').split('@')[0]);
+        fbMeName = String(me.name || '');
+        // Off only when the server says so explicitly (DEMO_EXPLAIN_DENIES=0).
+        fbExplain = me.demoExplainDenies !== false;
+        if (typeof me.entitySuffix === 'string') fbSuffix = me.entitySuffix;
+      }
+
+      function fbNotice(html) {
+        const msgs = document.getElementById('finbot-messages');
+        msgs.insertAdjacentHTML('beforeend', '<div class="fb-msg fb-notice">' + html + '</div>');
+        msgs.scrollTop = msgs.scrollHeight;
+      }
+
+      // 'same' | 'changed' | 'signed-out' | 'unknown'. Only 'same' and
+      // 'unknown' let a message go: on a network blip the server still decides
+      // who is asking, and refusing to send would be worse than sending.
+      async function fbCheckIdentity() {
+        let r;
+        try { r = await fetch(fbUrl('/api/auth/me'), { credentials: 'include' }); }
+        catch (e) { return 'unknown'; }
+        if (r.status === 401) {
+          fbNotice('Your session has ended, so nothing was sent. Sign in again to continue.');
+          return 'signed-out';
+        }
+        if (!r.ok) return 'unknown';
+        let me;
+        try { me = await r.json(); } catch (e) { return 'unknown'; }
+        const persona = fbNorm(String(me.email || me.sub || '').split('@')[0]);
+        if (!fbPersona || persona === fbPersona) { fbApplyIdentity(me); return 'same'; }
+        const was = fbMeName || fbPersona;
+        fbApplyIdentity(me);
+        // A different principal is a different conversation: new session id,
+        // empty history, their own chips — nothing of the previous person's
+        // chat is sent under this one's name.
+        fbNewSession();
+        fbAsked = new Set();
+        fbRenderChips();
+        fbNotice('<b>You are now signed in as ' + fbEsc(fbMeName || persona) + '</b>, not ' +
+          fbEsc(was) + ' — another tab in this browser changed the session. ' +
+          'Nothing was sent. To run two people side by side, use a second browser ' +
+          'profile or a private window.');
+        return 'changed';
+      }
+
+      function fbRenderChips() {
+        const box = document.getElementById('finbot-chips');
+        if (!box) return;
+        const list = (FB_OPENERS_BY_PERSONA[fbPersona] || [])
+          .filter(p => !fbAsked.has(fbNorm(p))).slice(0, FB_MAX_CHIPS);
+        box.innerHTML = list.map(p =>
+          '<button type="button" class="fb-chip">' + fbEsc(p) + '</button>').join('');
+        Array.prototype.forEach.call(box.children, function(b) {
+          b.addEventListener('click', function() {
+            if (fbSending) return;
+            document.getElementById('finbot-input').value = b.textContent;
+            fbSend();
+          });
+        });
+      }
+
+      function fbNewSession() {
+        fbSessionId = (crypto.randomUUID && crypto.randomUUID()) ||
+                      ('sb-' + Date.now() + '-' + Math.random().toString(16).slice(2));
+        fbChatStartedAt = new Date().toISOString();
+        fbHistory = [];
+      }
+
+      function fbTrim(s) {
+        s = String(s || '');
+        return s.length > FB_MAX_CHARS ? s.slice(0, FB_MAX_CHARS) + ' … [truncated]' : s;
+      }
+      // Convert markdown to HTML for clean chat display
+      function formatResponse(text) {
+        return text
+          // Bold: **text** → <strong>text</strong>
+          .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+          // Bullet points: * text → styled list item
+          .replace(/^\* /gm, '• ')
+          .replace(/^- /gm, '• ')
+          // Numbered lists: 1. text → keep as is
+          // Line breaks
+          .replace(/\n/g, '<br>');
+      }
+
+      // One turn on the wire. `hitl` is a verdict being REPLAYED — absent means
+      // nobody has been asked, which is a different statement from "pending" and
+      // the one the policy's `has` guard reads correctly.
+      //
+      // `turn` is passed in rather than recomputed, because a replay must carry
+      // the SAME turn number as the request that pended. Recomputing it here
+      // would silently renumber the replay and desync the session history.
+      async function fbPost(msg, turn, hitl, signal) {
+        const res = await fetch(fbUrl('/api/agent/chat'), {
+          method: 'POST',
+          credentials: 'include',
+          signal: signal,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            // The entity line rides in the MESSAGE, because the message is the
+            // only thing the model sees. Sending it as a separate field would
+            // reach the PDP and never reach the model, which is the opposite of
+            // what it is for.
+            message: fbEntity ? (msg + '\n\n[' + fbEntity.label + ' in context: ' + fbEntity.id + ']') : msg,
+            sessionId: fbSessionId,
+            // turn and the history travel together: the PDP requires
+            // turn >= 2 whenever session messages are present, and refuses the
+            // mismatch on the ENTRY hop — which reads as not being authorized
+            // to use the assistant at all.
+            turn: turn,
+            sessionStartedAt: fbChatStartedAt,
+            sessionMessages: fbHistory.slice(-FB_MAX_TURNS),
+            hitl: hitl || null
+          })
+        });
+        return await res.json();
+      }
+
+      // Wait for a person, then replay the ORIGINAL request carrying their
+      // verdict. Approving does not run anything here — the turn is replayed and
+      // the policy decides, which is why a rejection still has to reach the PDP.
+      async function fbAwaitVerdict(approvalId, msg, turn, typingEl, signal) {
+        const deadline = Date.now() + FB_APPROVAL_WAIT_MS;
+        while (Date.now() < deadline) {
+          if (signal && signal.aborted) return null;
+          await new Promise(r => setTimeout(r, FB_APPROVAL_POLL_MS));
+          let info;
+          try {
+            const r = await fetch(fbUrl('/api/approvals/') + encodeURIComponent(approvalId),
+                                  { credentials: 'include' });
+            if (!r.ok) continue;              // transient; the record is still there
+            info = await r.json();
+          } catch (e) { continue; }
+          if (info && info.verdict) {
+            typingEl.innerHTML =
+              '<span class="fb-pending-label">' +
+              (info.verdict.status === 'approved' ? '✅ Approved' : '⛔ Rejected') +
+              '</span>Replaying the request with the decision…' +
+              '<span class="fb-pending-meta">by ' + fbEsc(info.verdict.approver) + '</span>';
+            return await fbPost(msg, turn, info.verdict, signal);
+          }
+        }
+        return null;   // nobody answered in time
+      }
+
+      function fbEsc(v) {
+        return String(v == null ? '' : v).replace(/[&<>"]/g,
+          c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+      }
+
+      // Called by React when a record modal opens or closes. Global on purpose:
+      // the widget lives outside React's tree (see the comment above #finbot-panel),
+      // so props cannot reach it.
+      window.finbotSetContext = function(entity) {
+        fbEntity = (entity && entity.id) ? { label: entity.label || 'Record', id: String(entity.id) } : null;
+      };
+
+      async function fbSend() {
+        if (fbSending) return;                 // ⛔ ignore Enter/click while a request is running
+        const input = document.getElementById('finbot-input');
+        const msgs = document.getElementById('finbot-messages');
+        const btn = document.getElementById('finbot-send');
+        let msg = input.value.trim();
+        if (!msg) return;
+
+        fbSending = true;                       // 🔒 lock, including the check
+        btn.disabled = true;
+        const who = await fbCheckIdentity();
+        if (who === 'changed' || who === 'signed-out') {
+          fbSending = false;                    // the text stays in the box
+          btn.disabled = false;
+          input.focus();
+          return;
+        }
+
+        fbAsked.add(fbNorm(msg));               // retires its chip, clicked or typed
+        document.getElementById('finbot-chips').innerHTML = '';
+        input.value = '';
+        input.disabled = true;
+        btn.disabled = true;
+
+        msgs.innerHTML += '<div class="fb-msg fb-user">' + msg + '</div>';
+
+        const typingEl = document.createElement('div');
+        typingEl.className = 'fb-msg fb-bot fb-typing';
+        typingEl.innerHTML = '<div class="fb-dot"></div><div class="fb-dot"></div><div class="fb-dot"></div>';
+        msgs.appendChild(typingEl);
+        msgs.scrollTop = msgs.scrollHeight;
+
+        if (!fbSessionId) fbNewSession();
+        const askedAt = new Date().toISOString();
+        // Fixed for this turn INCLUDING its replay. A pending turn is not a
+        // completed turn, so it never enters fbHistory and never bumps this.
+        const turn = fbHistory.length + 1;
+
+        // An elapsed counter, because "nothing is happening" for forty seconds is
+        // the worst moment in a demo.
+        const started = Date.now();
+        const ticker = setInterval(() => {
+          const s = Math.round((Date.now() - started) / 1000);
+          if (s >= 5) typingEl.setAttribute('data-elapsed', s + 's');
+        }, 1000);
+        const abort = new AbortController();
+        let bail = setTimeout(() => abort.abort(), FB_TIMEOUT_MS);
+
+        try {
+          let data = await fbPost(msg, turn, null, abort.signal);
+
+          // ── A gated action stopped the turn ────────────────────────────────
+          if (data && data.status === 'pending_approval' && data.approvalId) {
+            // Stop both the request timeout and the elapsed counter: they measure
+            // the agent working, and it is not. Leaving the timeout armed is how a
+            // pending approval turns into a spurious "taking longer than 180s".
+            clearTimeout(bail);
+            clearInterval(ticker);
+            typingEl.removeAttribute('data-elapsed');
+            typingEl.className = 'fb-msg fb-bot fb-pending';
+            const p = data.pending || {};
+            typingEl.innerHTML =
+              '<span class="fb-pending-label">⏸ Waiting for approval</span>' +
+              fbEsc(p.display_message || data.response || 'This action needs a second person to sign off.') +
+              '<span class="fb-pending-meta">' + fbEsc(p.tool || 'action') +
+              ' · nothing has run yet · request ' + fbEsc(data.approvalId) + '</span>';
+            msgs.scrollTop = msgs.scrollHeight;
+
+            const replayed = await fbAwaitVerdict(data.approvalId, msg, turn, typingEl, abort.signal);
+            if (!replayed) {
+              typingEl.className = 'fb-msg fb-bot fb-pending';
+              typingEl.innerHTML =
+                '<span class="fb-pending-label">⏸ Still waiting</span>' +
+                'No decision yet. Nothing has run — the request stays in the approvals ' +
+                'queue, and you can ask again once someone has answered it.';
+              return;
+            }
+            data = replayed;
+            bail = setTimeout(() => abort.abort(), FB_TIMEOUT_MS);
+          }
+
+          if (data.sessionId) fbSessionId = data.sessionId;
+          // The server's word on whose turn this was. The check before sending
+          // closes nearly all of the window; this says so if a sign-in in
+          // another tab landed during the request itself.
+          const ranAs = fbNorm(String(data.ranAs || '').split('@')[0]);
+          if (ranAs && fbPersona && ranAs !== fbPersona) {
+            fbNotice('This answer ran as <b>' + fbEsc(data.ranAs) + '</b>, not ' +
+              fbEsc(fbMeName || fbPersona) + ' — the session changed while it was in flight.');
+          }
+          const body = formatResponse(data.response || data.error || 'Something went wrong.');
+
+          // Only a COMPLETED turn becomes history — one we got an answer for.
+          // A policy block is an answer and is recorded: "asked, refused, asked
+          // something else" is exactly the trajectory a later hop is judged
+          // against. A transport failure is not, because nothing happened.
+          // Neither is a pending turn — it is the same question, still open, and
+          // recording it would renumber its own replay.
+          if (data.response && data.status !== 'pending_approval') {
+            fbHistory.push({
+              turn: turn,
+              request:  { role: 'user',  contentType: 'text/plain',
+                          content: fbTrim(msg), timestamp: askedAt },
+              response: { role: 'agent', contentType: 'text/plain',
+                          content: fbTrim(data.response), timestamp: new Date().toISOString() }
+            });
+            if (fbHistory.length > FB_MAX_TURNS) fbHistory = fbHistory.slice(-FB_MAX_TURNS);
+          }
+          if (data.denied) {
+            typingEl.className = 'fb-msg fb-bot fb-blocked';
+            typingEl.innerHTML = '<span class="fb-blocked-label">🛡 Blocked by policy</span>' +
+              fbWhyHTML(data) + body + fbFootHTML(data);
+          } else if (data.fault) {
+            // Authorization could not be completed — NOT a refusal, and it must
+            // not look like one.
+            typingEl.className = 'fb-msg fb-bot fb-fault';
+            typingEl.innerHTML = '<span class="fb-fault-label">' +
+              fbEsc(FB_FAULT_LABELS[data.fault] || '⚠ Authorization incomplete') + '</span>' +
+              body + fbFootHTML(data);
+          } else if (data.filtered) {
+            typingEl.className = 'fb-msg fb-bot fb-filtered';
+            typingEl.innerHTML = '<span class="fb-filtered-label">⚠ Refused by content filter</span>' + body;
+          } else {
+            typingEl.className = 'fb-msg fb-bot';
+            typingEl.innerHTML = body;
+          }
+        } catch (e) {
+          typingEl.className = 'fb-msg fb-bot';
+          // On a timeout, say something SAFE. The agent may still be working, and
+          // "try again" after a loan action could place it twice.
+          typingEl.textContent = (e && e.name === 'AbortError')
+            ? 'FinBot is taking longer than ' + Math.round(FB_TIMEOUT_MS / 1000) +
+              's. It may still be working — check the loans list before retrying, ' +
+              'so nothing is actioned twice.'
+            : 'Unable to reach FinBot. Please try again.';
+        } finally {
+          clearInterval(ticker);
+          clearTimeout(bail);
+          typingEl.removeAttribute('data-elapsed');
+          fbSending = false;                    // 🔓 unlock on success OR error
+          input.disabled = false;
+          btn.disabled = false;
+          fbRenderChips();
+          msgs.scrollTop = msgs.scrollHeight;
+          input.focus();
+        }
+      }
+
+
+      // Start a fresh conversation without reloading the page.
+      //
+      // Clearing fbSessionId is the WHOLE mechanism. The server does
+      // `agentSessionId = sessionId || uuidv4()` and keys its prompt-history map
+      // on that id (routes.ts), so sending null makes it mint a new id AND start
+      // an empty history bucket. That resets both things that matter between demo
+      // sequences:
+      //   • session_id  → conversation_key → a NEW Reva trace / threadId
+      //   • query_history + history.prompt → a CLEAN goal baseline, so an
+      //     intent-drift run isn't judged against the previous run's turns.
+      function fbNewChat() {
+        if (fbSending) return;                 // don't cut a request loose mid-flight
+        const previous = fbSessionId;
+        // Resets all four together: a new id, a new start time, an empty history
+        // and turn back to 1. Clearing only the id would leave the next message
+        // claiming turn N of a session that has no history.
+        fbNewSession();
+        const msgs = document.getElementById('finbot-messages');
+        // Restore the original greeting captured at load, so a new chat looks
+        // exactly like a fresh page. Sourced from the markup rather than a copy
+        // of the text, so editing the greeting above updates both automatically.
+        msgs.innerHTML = fbGreetingHTML;
+        fbAsked = new Set();
+        fbRenderChips();
+        const input = document.getElementById('finbot-input');
+        input.value = '';
+        msgs.scrollTop = msgs.scrollHeight;
+        input.focus();
+        // Printed so a demo turn can be lined up against the Reva decision logs.
+        console.log('[FinBot] new chat — previous session:', previous || '(none)',
+                    '· next request mints a fresh trace id');
+      }
+
+      // Show the widget only for a signed-in user. /api/auth/me returns 200 with
+      // the user's claims when the session cookie is valid, 401 otherwise.
+      async function fbInit() {
+        try {
+          const res = await fetch(fbUrl('/api/auth/me'), { credentials: 'include' });
+          if (!res.ok) return;                 // not signed in — stay hidden
+          const me = await res.json();
+          fbApplyIdentity(me);
+          fbRenderChips();
+          document.getElementById('finbot-panel').classList.add('fb-ready');
+        } catch (e) {
+          // Network/auth failure — leave the widget hidden rather than exposing
+          // a chat that would only 401 on the first message.
+        }
+      }
+
+      // ── Approvals queue ───────────────────────────────────────────────────
+      // Visible only to users the SERVER lets read it. The 403 is the gate; this
+      // just hides a button nobody could use. Checking the role in the browser
+      // and calling that access control is how these panels usually go wrong.
+      let apTimer = null;
+
+      async function apRefresh() {
+        let data;
+        try {
+          const r = await fetch(fbUrl('/api/approvals'), { credentials: 'include' });
+          if (!r.ok) { apStop(); return; }     // 403 for anyone who may not decide
+          data = await r.json();
+        } catch (e) { return; }                 // transient — keep polling
+
+        document.getElementById('approvals-toggle').classList.add('visible');
+        const pending = data.pending || [];
+        document.getElementById('approvals-count').textContent = pending.length;
+
+        const list = document.getElementById('approvals-list');
+        if (!pending.length) {
+          list.innerHTML = '<div class="ap-empty">Nothing waiting.</div>';
+          return;
+        }
+        list.innerHTML = pending.map(function(a) {
+          // Self-approval is refused by the SERVER; showing it here as a note
+          // rather than hiding the row keeps the reason visible instead of
+          // making the request look like it vanished.
+          const mine = data.makerChecker && a.requester === data.you;
+          const args = Object.keys(a.arguments || {}).length
+            ? Object.keys(a.arguments).map(k => fbEsc(k) + ': ' + fbEsc(a.arguments[k])).join('<br>')
+            : '<em>no arguments</em>';
+          return '<div class="ap-item">' +
+            '<div class="ap-tool">' + fbEsc(a.tool) + '</div>' +
+            '<div class="ap-meta">' + fbEsc(a.requester) + ' · ' +
+              new Date(a.createdAt).toLocaleTimeString() +
+              (a.slackError ? ' · <span style="color:#b45309">Slack card failed</span>' : '') +
+            '</div>' +
+            '<div class="ap-args">' + args + '</div>' +
+            (mine
+              ? '<div class="ap-note">You raised this, so someone else has to decide it.</div>'
+              : '<div class="ap-actions">' +
+                  '<button class="ap-approve" data-id="' + fbEsc(a.id) + '" data-v="approved">Approve</button>' +
+                  '<button class="ap-reject" data-id="' + fbEsc(a.id) + '" data-v="rejected">Reject</button>' +
+                '</div>') +
+            '</div>';
+        }).join('');
+
+        Array.prototype.forEach.call(list.querySelectorAll('button[data-id]'), function(btn) {
+          btn.addEventListener('click', function() { apDecide(btn.dataset.id, btn.dataset.v, btn); });
+        });
+      }
+
+      async function apDecide(id, verdict, btn) {
+        btn.disabled = true;
+        try {
+          const r = await fetch(fbUrl('/api/approvals/') + encodeURIComponent(id) + '/decide', {
+            method: 'POST', credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ verdict: verdict })
+          });
+          if (!r.ok) {
+            const err = await r.json().catch(() => ({}));
+            // Say what the server said. "Something went wrong" on a refused
+            // self-approval sends people to look for a bug that isn't there.
+            alert(err.message || 'Could not record that decision.');
+          }
+        } catch (e) {
+          alert('Could not reach the server. The request is still waiting.');
+        } finally {
+          btn.disabled = false;
+          apRefresh();
+        }
+      }
+
+      function apStop() {
+        if (apTimer) { clearInterval(apTimer); apTimer = null; }
+        document.getElementById('approvals-toggle').classList.remove('visible');
+        document.getElementById('approvals-panel').classList.remove('open');
+      }
+
+      function apInit() {
+        document.getElementById('approvals-toggle').addEventListener('click', function() {
+          document.getElementById('approvals-panel').classList.toggle('open');
+          apRefresh();
+        });
+        document.getElementById('approvals-close').addEventListener('click', function() {
+          document.getElementById('approvals-panel').classList.remove('open');
+        });
+        apRefresh();
+        apTimer = setInterval(apRefresh, 5000);
+      }
+
+      document.addEventListener('DOMContentLoaded', function() {
+        // Capture the greeting before any message is appended — this is the
+        // single source of truth that fbNewChat() restores.
+        fbGreetingHTML = document.getElementById('finbot-messages').innerHTML;
+        document.getElementById('finbot-send').addEventListener('click', fbSend);
+        document.getElementById('finbot-newchat').addEventListener('click', fbNewChat);
+        document.getElementById('finbot-input').addEventListener('keydown', function(e) {
+          if (e.key === 'Enter') fbSend();
+        });
+        fbInit();
+        apInit();
+        document.addEventListener('visibilitychange', function() {
+          if (document.visibilityState === 'visible' && fbPersona && !fbSending) fbCheckIdentity();
+        });
+      });
+    </script>
+  </body>
+</html>

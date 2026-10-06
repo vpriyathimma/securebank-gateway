@@ -1,0 +1,1056 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "SecureBank API",
+    "description": "Comprehensive banking management system with Cedar-based authorization, role-based access control, account management, transactions, loans, and user administration.",
+    "version": "1.0.1",
+    "contact": {
+      "name": "SecureBank API Support",
+      "url": "http://localhost:5000"
+    },
+    "license": {
+      "name": "MIT",
+      "url": "https://opensource.org/licenses/MIT"
+    }
+  },
+  "servers": [
+    {
+      "url": "http://localhost:5000/api",
+      "description": "Development server"
+    }
+  ],
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": ["Health"],
+        "summary": "Health check",
+        "operationId": "getHealth",
+        "responses": {
+          "200": {
+            "description": "API is healthy",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": { "type": "string", "example": "OK" },
+                    "message": { "type": "string", "example": "SecureBank API is running" },
+                    "timestamp": { "type": "string", "format": "date-time" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "tags": ["Authentication"],
+        "summary": "User login",
+        "operationId": "login",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": { "type": "string", "format": "email" },
+                  "role": { "type": "string", "enum": ["Account Holder", "Bank Teller", "Bank Manager"] }
+                },
+                "required": ["email", "role"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Login successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "user": { "$ref": "#/components/schemas/User" },
+                    "message": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/auth/logout": {
+      "post": {
+        "tags": ["Authentication"],
+        "summary": "User logout",
+        "operationId": "logout",
+        "security": [{"sessionAuth": []}],
+        "responses": {
+          "200": {
+            "description": "Logout successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/me": {
+      "get": {
+        "tags": ["Authentication"],
+        "summary": "Get current user",
+        "operationId": "getCurrentUser",
+        "security": [{"sessionAuth": []}],
+        "responses": {
+          "200": {
+            "description": "Current user data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "user": { "$ref": "#/components/schemas/User" }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/dashboard/stats": {
+      "get": {
+        "tags": ["Dashboard"],
+        "summary": "Get dashboard statistics",
+        "operationId": "getDashboardStats",
+        "security": [{"sessionAuth": []}],
+        "responses": {
+          "200": {
+            "description": "Dashboard statistics",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "totalBalance": { "type": "number" },
+                    "totalLoans": { "type": "number" },
+                    "accountsCount": { "type": "integer" },
+                    "loansCount": { "type": "integer" },
+                    "recentTransactions": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/Transaction" }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/users": {
+      "get": {
+        "tags": ["Users"],
+        "summary": "List users",
+        "operationId": "getUsers",
+        "security": [{"sessionAuth": []}],
+        "responses": {
+          "200": {
+            "description": "List of users",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/User" }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["Users"],
+        "summary": "Create user",
+        "operationId": "createUser",
+        "security": [{"sessionAuth": []}],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CreateUserRequest" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "User created",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/User" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/users/{id}": {
+      "get": {
+        "tags": ["Users"],
+        "summary": "Get user by ID",
+        "operationId": "getUserById",
+        "security": [{"sessionAuth": []}],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "User details",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/User" }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": ["Users"],
+        "summary": "Update user",
+        "operationId": "updateUser",
+        "security": [{"sessionAuth": []}],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/UpdateUserRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "User updated",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/User" }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": ["Users"],
+        "summary": "Delete user",
+        "operationId": "deleteUser",
+        "security": [{"sessionAuth": []}],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "User deleted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/accounts": {
+      "get": {
+        "tags": ["Accounts"],
+        "summary": "List accounts",
+        "operationId": "getAccounts",
+        "security": [{"sessionAuth": []}],
+        "responses": {
+          "200": {
+            "description": "List of accounts",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/Account" }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["Accounts"],
+        "summary": "Create account",
+        "operationId": "createAccount",
+        "security": [{"sessionAuth": []}],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CreateAccountRequest" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Account created",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Account" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/accounts/{id}": {
+      "get": {
+        "tags": ["Accounts"],
+        "summary": "Get account by ID",
+        "operationId": "getAccountById",
+        "security": [{"sessionAuth": []}],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Account details",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Account" }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": ["Accounts"],
+        "summary": "Update account",
+        "operationId": "updateAccount",
+        "security": [{"sessionAuth": []}],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/UpdateAccountRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Account updated",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Account" }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": ["Accounts"],
+        "summary": "Delete account",
+        "operationId": "deleteAccount",
+        "security": [{"sessionAuth": []}],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Account deleted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/transactions": {
+      "get": {
+        "tags": ["Transactions"],
+        "summary": "List transactions",
+        "operationId": "getTransactions",
+        "security": [{"sessionAuth": []}],
+        "responses": {
+          "200": {
+            "description": "List of transactions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/Transaction" }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["Transactions"],
+        "summary": "Create transaction",
+        "operationId": "createTransaction",
+        "security": [{"sessionAuth": []}],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CreateTransactionRequest" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Transaction created",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Transaction" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/transactions/{id}": {
+      "get": {
+        "tags": ["Transactions"],
+        "summary": "Get transaction by ID",
+        "operationId": "getTransactionById",
+        "security": [{"sessionAuth": []}],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Transaction details",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Transaction" }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": ["Transactions"],
+        "summary": "Delete transaction",
+        "operationId": "deleteTransaction",
+        "security": [{"sessionAuth": []}],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Transaction deleted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/transfer": {
+      "post": {
+        "tags": ["Transfers"],
+        "summary": "Transfer funds",
+        "description": "Transfer funds between accounts with role-based limits",
+        "operationId": "transferFunds",
+        "security": [{"sessionAuth": []}],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/TransferRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Transfer completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": { "type": "string" },
+                    "transactions": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/Transaction" }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/loans": {
+      "get": {
+        "tags": ["Loans"],
+        "summary": "List loans",
+        "operationId": "getLoans",
+        "security": [{"sessionAuth": []}],
+        "responses": {
+          "200": {
+            "description": "List of loans",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/Loan" }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["Loans"],
+        "summary": "Create loan",
+        "operationId": "createLoan",
+        "security": [{"sessionAuth": []}],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CreateLoanRequest" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Loan created",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Loan" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/loans/apply": {
+      "post": {
+        "tags": ["Loans"],
+        "summary": "Apply for loan",
+        "operationId": "applyForLoan",
+        "security": [{"sessionAuth": []}],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/LoanApplicationRequest" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Loan application submitted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": { "type": "string" },
+                    "loan": { "$ref": "#/components/schemas/Loan" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/loans/{id}": {
+      "get": {
+        "tags": ["Loans"],
+        "summary": "Get loan by ID",
+        "operationId": "getLoanById",
+        "security": [{"sessionAuth": []}],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Loan details",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Loan" }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": ["Loans"],
+        "summary": "Update loan",
+        "operationId": "updateLoan",
+        "security": [{"sessionAuth": []}],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/UpdateLoanRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Loan updated",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Loan" }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": ["Loans"],
+        "summary": "Delete loan",
+        "operationId": "deleteLoan",
+        "security": [{"sessionAuth": []}],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Loan deleted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/loans/{id}/decision": {
+      "patch": {
+        "tags": ["Loans"],
+        "summary": "Loan decision",
+        "operationId": "loanDecision",
+        "security": [{"sessionAuth": []}],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/LoanDecisionRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Loan decision recorded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": { "type": "string" },
+                    "loan": { "$ref": "#/components/schemas/Loan" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/loans/{id}/accept": {
+      "patch": {
+        "tags": ["Loans"],
+        "summary": "Accept loan offer",
+        "operationId": "acceptLoanOffer",
+        "security": [{"sessionAuth": []}],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Loan offer accepted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": { "type": "string" },
+                    "loan": { "$ref": "#/components/schemas/Loan" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/loans/{id}/decline": {
+      "patch": {
+        "tags": ["Loans"],
+        "summary": "Decline loan offer",
+        "operationId": "declineLoanOffer",
+        "security": [{"sessionAuth": []}],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Loan offer declined",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": { "type": "string" },
+                    "loan": { "$ref": "#/components/schemas/Loan" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "sessionAuth": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "sessionId",
+        "description": "Session-based authentication via cookies"
+      }
+    },
+    "schemas": {
+      "User": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "name": { "type": "string", "example": "John Smith" },
+          "email": { "type": "string", "format": "email", "example": "john.smith@email.com" },
+          "phone": { "type": "string", "example": "555-0101" },
+          "role": { "type": "string", "enum": ["Account Holder", "Bank Teller", "Bank Manager"] },
+          "status": { "type": "string", "enum": ["active", "inactive", "suspended"] },
+          "createdAt": { "type": "string", "format": "date-time" }
+        },
+        "required": ["id", "name", "email", "role", "status", "createdAt"]
+      },
+      "Account": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "userId": { "type": "string", "format": "uuid" },
+          "accountNumber": { "type": "string", "example": "1001000123" },
+          "accountType": { "type": "string", "enum": ["checking", "savings", "business"] },
+          "balance": { "type": "string", "example": "2750.50" },
+          "status": { "type": "string", "enum": ["active", "closed", "frozen"] },
+          "createdAt": { "type": "string", "format": "date-time" }
+        },
+        "required": ["id", "userId", "accountNumber", "accountType", "balance", "status", "createdAt"]
+      },
+      "Transaction": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "fromAccountId": { "type": "string", "format": "uuid", "nullable": true },
+          "toAccountId": { "type": "string", "format": "uuid", "nullable": true },
+          "type": { "type": "string", "enum": ["deposit", "withdrawal", "transfer", "fee"] },
+          "amount": { "type": "string", "example": "500.00" },
+          "description": { "type": "string", "example": "Monthly savings transfer" },
+          "status": { "type": "string", "enum": ["completed", "pending", "failed"] },
+          "processedBy": { "type": "string", "format": "uuid", "nullable": true },
+          "createdAt": { "type": "string", "format": "date-time" }
+        },
+        "required": ["id", "type", "amount", "description", "status", "createdAt"]
+      },
+      "Loan": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "userId": { "type": "string", "format": "uuid" },
+          "type": { "type": "string", "enum": ["personal", "auto", "home", "business"] },
+          "amount": { "type": "string", "example": "15000.00" },
+          "interestRate": { "type": "string", "example": "8.50" },
+          "termMonths": { "type": "integer", "example": 36 },
+          "monthlyPayment": { "type": "string", "example": "472.81" },
+          "remainingBalance": { "type": "string", "example": "15000.00" },
+          "status": { "type": "string", "enum": ["pending", "offered", "accepted", "approved", "rejected", "active", "paid_off"] },
+          "approvedBy": { "type": "string", "format": "uuid", "nullable": true },
+          "notes": { "type": "string", "nullable": true },
+          "createdAt": { "type": "string", "format": "date-time" }
+        },
+        "required": ["id", "userId", "type", "amount", "interestRate", "termMonths", "monthlyPayment", "remainingBalance", "status", "createdAt"]
+      },
+      "CreateUserRequest": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string", "example": "Emma Davis" },
+          "email": { "type": "string", "format": "email", "example": "emma.davis@email.com" },
+          "phone": { "type": "string", "example": "555-0104" },
+          "role": { "type": "string", "enum": ["Account Holder", "Bank Teller", "Bank Manager"] },
+          "status": { "type": "string", "enum": ["active", "inactive", "suspended"], "default": "active" }
+        },
+        "required": ["name", "email", "role"]
+      },
+      "UpdateUserRequest": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "phone": { "type": "string" },
+          "status": { "type": "string", "enum": ["active", "inactive", "suspended"] }
+        }
+      },
+      "CreateAccountRequest": {
+        "type": "object",
+        "properties": {
+          "userId": { "type": "string", "format": "uuid" },
+          "accountNumber": { "type": "string", "example": "1001000999" },
+          "accountType": { "type": "string", "enum": ["checking", "savings", "business"] },
+          "balance": { "type": "string", "example": "1000.00", "default": "0.00" },
+          "status": { "type": "string", "enum": ["active", "closed", "frozen"], "default": "active" }
+        },
+        "required": ["userId", "accountNumber", "accountType"]
+      },
+      "UpdateAccountRequest": {
+        "type": "object",
+        "properties": {
+          "balance": { "type": "string" },
+          "status": { "type": "string", "enum": ["active", "closed", "frozen"] }
+        }
+      },
+      "CreateTransactionRequest": {
+        "type": "object",
+        "properties": {
+          "fromAccountId": { "type": "string", "format": "uuid", "nullable": true },
+          "toAccountId": { "type": "string", "format": "uuid", "nullable": true },
+          "type": { "type": "string", "enum": ["deposit", "withdrawal", "transfer", "fee"] },
+          "amount": { "type": "string", "example": "100.00" },
+          "description": { "type": "string", "example": "Manual transfer" },
+          "status": { "type": "string", "enum": ["completed", "pending", "failed"], "default": "completed" }
+        },
+        "required": ["type", "amount", "description"]
+      },
+      "TransferRequest": {
+        "type": "object",
+        "properties": {
+          "fromAccountId": { "type": "string", "format": "uuid" },
+          "toAccountId": { "type": "string", "format": "uuid" },
+          "amount": { "type": "string", "example": "1000.00" },
+          "description": { "type": "string", "example": "Transfer to savings" }
+        },
+        "required": ["fromAccountId", "toAccountId", "amount", "description"]
+      },
+      "CreateLoanRequest": {
+        "type": "object",
+        "properties": {
+          "userId": { "type": "string", "format": "uuid" },
+          "type": { "type": "string", "enum": ["personal", "auto", "home", "business"] },
+          "amount": { "type": "string", "example": "15000.00" },
+          "interestRate": { "type": "string", "example": "8.50" },
+          "termMonths": { "type": "integer", "example": 36 },
+          "monthlyPayment": { "type": "string", "example": "472.81" },
+          "remainingBalance": { "type": "string", "example": "15000.00" },
+          "status": { "type": "string", "enum": ["pending", "offered", "accepted", "approved", "rejected"], "default": "pending" },
+          "notes": { "type": "string" }
+        },
+        "required": ["userId", "type", "amount", "interestRate", "termMonths", "monthlyPayment", "remainingBalance"]
+      },
+      "LoanApplicationRequest": {
+        "type": "object",
+        "properties": {
+          "type": { "type": "string", "enum": ["personal", "auto", "home", "business"] },
+          "amount": { "type": "string", "example": "25000.00" },
+          "termMonths": { "type": "integer", "minimum": 6, "maximum": 360, "example": 48 },
+          "purpose": { "type": "string", "minLength": 10, "example": "Home renovation project" }
+        },
+        "required": ["type", "amount", "termMonths", "purpose"]
+      },
+      "UpdateLoanRequest": {
+        "type": "object",
+        "properties": {
+          "amount": { "type": "string" },
+          "interestRate": { "type": "string" },
+          "termMonths": { "type": "integer" },
+          "monthlyPayment": { "type": "string" },
+          "remainingBalance": { "type": "string" },
+          "status": { "type": "string", "enum": ["pending", "offered", "accepted", "approved", "rejected", "active", "paid_off"] },
+          "notes": { "type": "string" }
+        }
+      },
+      "LoanDecisionRequest": {
+        "type": "object",
+        "properties": {
+          "decision": { "type": "string", "enum": ["approved", "rejected"] },
+          "interestRate": { "type": "string", "example": "7.25" },
+          "notes": { "type": "string", "example": "Approved based on excellent credit history" }
+        },
+        "required": ["decision"]
+      }
+    },
+    "responses": {
+      "BadRequest": {
+        "description": "Bad request - invalid input data",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" }
+              }
+            }
+          }
+        }
+      },
+      "Unauthorized": {
+        "description": "Unauthorized - authentication required",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" }
+              }
+            }
+          }
+        }
+      },
+      "NotFound": {
+        "description": "Resource not found",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "security": [
+    {
+      "sessionAuth": []
+    }
+  ]
+}
