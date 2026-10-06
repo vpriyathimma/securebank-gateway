@@ -211,11 +211,12 @@
   </div>
 
 <script>
-// Backend (LangGraph FinBot). Localhost when running locally; the deployed
-// LangGraph service otherwise. Change the deployed URL if your service name differs.
+// Backend (LangGraph FinBot). Localhost:10000 when opened as a static file
+// during local dev; same-origin otherwise — server.py now mounts this UI
+// itself, so deployed the API lives on the same host/port as the page.
 const BACKEND = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
   ? 'http://localhost:10000'
-  : (window.BACKEND_URL || 'https://securebank-app-z7my.onrender.com');
+  : (window.BACKEND_URL || '');
 const USERS = {
   'mike.wilson@revapreview.onmicrosoft.com': {name:'Mike Wilson', role:'Bank Manager'},
   'sarah.johnson@revapreview.onmicrosoft.com': {name:'Sarah Johnson', role:'Bank Teller'},

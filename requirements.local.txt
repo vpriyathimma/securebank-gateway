@@ -5,6 +5,7 @@ langchain-openai
 langchain-core
 fastapi>=0.115.0
 uvicorn>=0.34.0
+aiofiles>=24.1.0   # required by fastapi.staticfiles.StaticFiles (serves ui/)
 python-dotenv>=1.0.0
 httpx[brotli]>=0.28.0
 pydantic>=2.0.0

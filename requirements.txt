@@ -4,6 +4,7 @@ langchain>=0.3.0
 langchain-xai>=0.2.0
 fastapi>=0.115.0
 uvicorn>=0.34.0
+aiofiles>=24.1.0   # required by fastapi.staticfiles.StaticFiles (serves ui/)
 python-dotenv>=1.0.0
 # [brotli] extra: agent→agent / agent→MCP calls go through Cloudflare, which
 # Brotli-compresses responses (content-encoding: br). Without this, httpx cannot

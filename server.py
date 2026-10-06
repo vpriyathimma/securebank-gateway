@@ -11,6 +11,7 @@ from collections import defaultdict
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from typing import Optional, Dict, Any
 from dotenv import load_dotenv
@@ -235,3 +236,12 @@ async def sharepoint(body: SubAgentRequest, request: Request):
 async def health():
     """Health check endpoint for Render."""
     return {"status": "healthy", "service": "securebank-langgraph-agent"}
+
+
+# ── UI ─────────────────────────────────────────────────────────────
+# Serves ui/index.html (dashboard + FinBot chat widget) at "/". Mounted last
+# so it never shadows the API routes above — Starlette matches routes in
+# registration order, and a Mount at "/" only catches what nothing earlier
+# matched. html=True makes it serve index.html for any unmatched path, so
+# this also gives the SPA a working fallback instead of a 404.
+app.mount("/", StaticFiles(directory="ui", html=True), name="ui")
